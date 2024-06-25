@@ -1,4 +1,4 @@
-from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG # must import first
+from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
 
 import os
 import pickle
@@ -28,6 +28,7 @@ def forward_pass(data, policy):
     image_data, qpos_data, action_data, is_pad = data
     image_data, qpos_data, action_data, is_pad = image_data.to(device), qpos_data.to(device), action_data.to(device), is_pad.to(device)
     return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
+
 
 def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
     # save training curves
