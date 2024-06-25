@@ -5,11 +5,8 @@ import numpy as np
 from einops import rearrange
 from torch.utils.data import DataLoader
 
-from training.policy import ACTPolicy, CNNMLPPolicy
+from act_panda.training.policy import ACTPolicy, CNNMLPPolicy
 
-
-import IPython
-e = IPython.embed
 
 class EpisodicDataset(torch.utils.data.Dataset):
     def __init__(self, episode_ids, dataset_dir, camera_names, norm_stats):
@@ -149,7 +146,21 @@ def make_optimizer(policy_class, policy):
         raise ValueError(f"Unknown policy class: {policy_class}")
     return optimizer
 
-### env utils
+
+def load_hdf5(dataset_path):
+    if not os.path.isfile(dataset_path):
+        print(f'Dataset does not exist at \n{dataset_path}\n')
+        exit()
+    with h5py.File(dataset_path, 'r') as root:
+        qpos = root['/observations/qpos'][()]
+        qvel = root['/observations/qvel'][()]
+        image_dict = dict()
+        for cam_name in root[f'/observations/images/'].keys():
+            image_dict[cam_name] = root[f'/observations/images/{cam_name}'][()]
+        action = root['/action'][()]
+
+    return qpos, qvel, action, image_dict
+
 
 def sample_box_pose():
     x_range = [0.0, 0.2]

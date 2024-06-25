@@ -5,9 +5,8 @@ import h5py
 import argparse
 from tqdm import tqdm
 from time import sleep, time
-from training.utils import pwm2pos, pwm2vel
-
-from robot import Robot
+from act_panda.utils.utils import pwm2pos, pwm2vel
+from act_panda.utils.robot import Robot
 
 # parse the task name via command line
 parser = argparse.ArgumentParser()

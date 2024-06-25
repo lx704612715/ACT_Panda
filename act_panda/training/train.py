@@ -6,6 +6,7 @@ import argparse
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
+from tqdm import tqdm
 from training.utils import *
 
 # parse the task name via command line
@@ -62,7 +63,7 @@ def train_bc(train_dataloader, val_dataloader, policy_config):
     validation_history = []
     min_val_loss = np.inf
     best_ckpt_info = None
-    for epoch in range(train_cfg['num_epochs']):
+    for epoch in tqdm(range(train_cfg['num_epochs'])):
         print(f'\nEpoch {epoch}')
         # validation
         with torch.inference_mode():

@@ -7,8 +7,8 @@ import pickle
 import argparse
 from time import time
 
-from robot import Robot
-from training.utils import *
+from act_panda.utils.robot import Robot
+from act_panda.training.utils import *
 
 
 # parse the task name via command line
