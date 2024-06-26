@@ -1,4 +1,4 @@
-from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG, PANDA_TASK_CONFIG  # must import first
+from config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG  # must import first
 
 import os
 import pickle
@@ -16,9 +16,9 @@ args = parser.parse_args()
 task = args.task
 
 # configs
-task_cfg = TASK_CONFIG
-train_cfg = TRAIN_CONFIG
-policy_config = POLICY_CONFIG
+task_cfg = PANDA_TASK_CONFIG
+train_cfg = PANDA_TRAIN_CONFIG
+policy_config = PANDA_POLICY_CONFIG
 checkpoint_dir = os.path.join(train_cfg['checkpoint_dir'], task)
 
 # device

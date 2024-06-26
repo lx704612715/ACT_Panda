@@ -8,12 +8,12 @@ import argparse
 from time import time
 
 from act_panda.utils.robot import Robot
-from act_panda.training.utils import *
+from act_panda.utils.utils import *
 
 
 # parse the task name via command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--task', type=str, default='task1')
+parser.add_argument('--task', type=str, default='latch')
 args = parser.parse_args()
 task = args.task
 

@@ -10,7 +10,7 @@ from act_panda.utils.robot import Robot
 
 # parse the task name via command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--task', type=str, default='task1')
+parser.add_argument('--task', type=str, default='latch')
 parser.add_argument('--num_episodes', type=int, default=1)
 args = parser.parse_args()
 task = args.task

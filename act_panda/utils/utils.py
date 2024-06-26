@@ -22,7 +22,7 @@ class EpisodicDataset(torch.utils.data.Dataset):
         return len(self.episode_ids)
 
     def __getitem__(self, index):
-        sample_full_episode = False # hardcode
+        sample_full_episode = False  # TODO:hardcode
 
         episode_id = self.episode_ids[index]
         dataset_path = os.path.join(self.dataset_dir, f'episode_{episode_id}.hdf5')
@@ -88,9 +88,9 @@ def get_norm_stats(dataset_dir, num_episodes):
             action = root['/action'][()]
         all_qpos_data.append(torch.from_numpy(qpos))
         all_action_data.append(torch.from_numpy(action))
-    all_qpos_data = torch.stack(all_qpos_data)
-    all_action_data = torch.stack(all_action_data)
-    all_action_data = all_action_data
+
+    all_qpos_data = torch.vstack(all_qpos_data)
+    all_action_data = torch.vstack(all_action_data)
 
     # normalize action data
     action_mean = all_action_data.mean(dim=[0, 1], keepdim=True)
@@ -128,6 +128,7 @@ def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_s
 
     return train_dataloader, val_dataloader, norm_stats, train_dataset.is_sim
 
+
 def make_policy(policy_class, policy_config):
     if policy_class == "ACT":
         policy = ACTPolicy(policy_config)
@@ -136,6 +137,7 @@ def make_policy(policy_class, policy_config):
     else:
         raise ValueError(f"Unknown policy class: {policy_class}")
     return policy
+
 
 def make_optimizer(policy_class, policy):
     if policy_class == 'ACT':
@@ -173,6 +175,7 @@ def sample_box_pose():
     cube_quat = np.array([1, 0, 0, 0])
     return np.concatenate([cube_position, cube_quat])
 
+
 def sample_insertion_pose():
     # Peg
     x_range = [0.1, 0.2]
@@ -198,8 +201,8 @@ def sample_insertion_pose():
 
     return peg_pose, socket_pose
 
-### helper functions
 
+### helper functions
 def get_image(images, camera_names, device='cpu'):
     curr_images = []
     for cam_name in camera_names:

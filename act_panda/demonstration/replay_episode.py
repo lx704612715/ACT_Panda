@@ -1,13 +1,10 @@
-import os
-import h5py
+from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
 import mediapy as media
 import matplotlib.pyplot as plt
 from act_panda.utils.utils import load_hdf5
 
-from config.config import TASK_CONFIG, ROBOT_PORTS
-
 # play cam video
-data_file = 'data/sort/episode_0.hdf5'
+data_file = 'data/latch/episode_0.hdf5'
 # data_file = 'data/demo/trained.hdf5'
 qpos, qvel, action, image_dict = load_hdf5(dataset_path=data_file)
 images = image_dict['front']
@@ -25,3 +22,4 @@ plt.xlabel('step')
 plt.ylabel('angle [rad]')
 plt.title('joint positions')
 plt.legend()
+plt.show()
