@@ -1,4 +1,4 @@
-from act_panda.config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
+from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
 import os
 from tqdm import tqdm
 import mediapy as media
@@ -6,11 +6,14 @@ import matplotlib.pyplot as plt
 from act_panda.utils.utils import load_hdf5
 from contact_lfd.LfDusingEC.vis.base_plot_funcs import plot_multi_lines
 
+act_project_dir = os.getenv("ACT_PROJECT_DIR")
+DATA_DIR = act_project_dir + '/data/'
 # Given a dataset dir, iterate all episode in the dir and align the data shape
-dataset_dir = '/home/lx/experiments/lx/act/ACT_Panda/data/latch/'
-all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
+dataset_name = 'latch'
 
-output_vis_dir = '/home/lx/experiments/lx/act/ACT_Panda/data/latch_vis/'
+dataset_dir = DATA_DIR + dataset_name + '/'
+output_vis_dir = DATA_DIR + dataset_name + '_vis' + '/'
+all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
 os.makedirs(output_vis_dir, exist_ok=True)
 
 shapes = []

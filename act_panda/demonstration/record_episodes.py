@@ -1,129 +1,149 @@
-from act_panda.config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
+from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
+import copy
 import os
-import cv2
 import h5py
 import argparse
-from tqdm import tqdm
-from time import sleep, time
-from act_panda.utils.utils import pwm2pos, pwm2vel
-from act_panda.utils.robot import Robot
+import numpy as np
+from collections import deque
 
-# parse the task name via command line
-parser = argparse.ArgumentParser()
-parser.add_argument('--task', type=str, default='latch_backup')
-parser.add_argument('--num_episodes', type=int, default=1)
-args = parser.parse_args()
-task = args.task
-num_episodes = args.num_episodes
+# Own scripts
+from contact_lfd.LfDIP.controller.arm_controller import Arm_Controller
+from contact_lfd.LfDusingEC.utils.utils_simple_lfd import TrajectoryRecorder
+from contact_lfd.LfDusingEC.utils.utils_robotMath import compute_distance_between_two_transforms
 
-cfg = TASK_CONFIG
+# ROS
+import rospy
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 
-def capture_image(cam):
-    # Capture a single frame
-    _, frame = cam.read()
-    # Generate a unique filename with the current date and time
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # Define your crop coordinates (top left corner and bottom right corner)
-    x1, y1 = 400, 0  # Example starting coordinates (top left of the crop rectangle)
-    x2, y2 = 1600, 900  # Example ending coordinates (bottom right of the crop rectangle)
-    # Crop the image
-    image = image[y1:y2, x1:x2]
-    # Resize the image
-    image = cv2.resize(image, (cfg['cam_width'], cfg['cam_height']), interpolation=cv2.INTER_AREA)
+class ImgTrajectoryRecorder(TrajectoryRecorder):
+    def __init__(self,  arm_ctrl: Arm_Controller, data_path, record=True, demo_idx=0, min_trans=0.005, min_rot=0.1, config=PANDA_TASK_CONFIG):
+        super().__init__(arm_ctrl, data_path, record, demo_idx, min_trans, min_rot)
+        self.curt_rgb_img = None
+        self.cfg = config
+        self.camera_name = "front"
+        self.rgb_imgs = []
+        self.q_traj = []
+        self.dq_traj = []
+        self.base_ht_ee_traj = []
+        self.gripper_status = []
+        self.switch_gripper_indexes = []
+        self.num_waypoints = 0
 
-    return image
+        self.img_deque = deque(maxlen=1)
+        self.bridge = CvBridge()
 
+        ros_rgb_topic = '/camera/color/image_raw'
+        rospy.wait_for_message(ros_rgb_topic, Image)
+        self.color_image_sub = rospy.Subscriber(ros_rgb_topic, Image, self.img_cb, queue_size=10)
 
-if __name__ == "__main__":
-    # init camera
-    cam = cv2.VideoCapture(cfg['camera_port'])
-    # Check if the camera opened successfully
-    if not cam.isOpened():
-        raise IOError("Cannot open camera")
-    # init follower
-    follower = Robot(device_name=ROBOT_PORTS['follower'])
-    # init leader
-    leader = Robot(device_name=ROBOT_PORTS['leader'])
-    leader.set_trigger_torque()
-
+    def img_cb(self, color_img_msg):
+        self.curt_rgb_img = self.bridge.imgmsg_to_cv2(color_img_msg, desired_encoding="rgb8")
+        self.img_deque.append(self.curt_rgb_img)
     
-    for i in range(num_episodes):
-        # bring the follower to the leader and start camera
-        for i in range(200):
-            follower.set_goal_pos(leader.read_position())
-            _ = capture_image(cam)
-        os.system('say "go"')
-        # init buffers
-        obs_replay = []
-        action_replay = []
-        for i in tqdm(range(cfg['episode_len'])):
-            # observation
-            qpos = follower.read_position()
-            qvel = follower.read_velocity()
-            image = capture_image(cam)
-            obs = {
-                'qpos': pwm2pos(qpos),
-                'qvel': pwm2vel(qvel),
-                'images': {cn : image for cn in cfg['camera_names']}
-            }
-            # action (leader's position)
-            action = leader.read_position()
-            # apply action
-            follower.set_goal_pos(action)
-            action = pwm2pos(action)
-            # store data
-            obs_replay.append(obs)
-            action_replay.append(action)
+    def recording(self, **kwargs):
+        self.recorder_logger.debug("Press Enter to Start Recording")
+        input()
+        self.recorder_logger.critical("press ESC to stop recording, press Enter to grasp object")
+        self.listener.start()
 
-        os.system('say "stop"')
+        last_base_ht_ee = self.arm_ctrl.base_ht_ee_queue[-1]
+        last_gripper_width = self.arm_ctrl.q_with_gripper_queue[-1][-1]
 
-        # disable torque
-        #leader._disable_torque()
-        #follower._disable_torque()
+        self.rgb_imgs.append(self.curt_rgb_img)
+        self.q_traj.append(self.arm_ctrl.q_with_gripper_queue[-1])
+        # we use the difference between gripper width as the gripper velocity
+        dq_with_gripper = np.append(self.arm_ctrl.dq_queue[-1], 0)
+        self.dq_traj.append(dq_with_gripper) 
+        self.base_ht_ee_traj.append(last_base_ht_ee)
+        self.gripper_status.append(int(self.arm_ctrl.gripper_ctl.is_grasping()))
 
-        # create a dictionary to store the data
-        data_dict = {
-            '/observations/qpos': [],
-            '/observations/qvel': [],
-            '/action': [],
-        }
-        # there may be more than one camera
-        for cam_name in cfg['camera_names']:
-                data_dict[f'/observations/images/{cam_name}'] = []
+        while self.start_recording and not rospy.is_shutdown() and self.arm_ctrl.ham_working:
+            curt_base_ht_ee = self.arm_ctrl.base_ht_ee_queue[-1]
+            curt_gripper_width = self.arm_ctrl.q_with_gripper_queue[-1][-1]
+            diff_gripper_width = curt_gripper_width - last_gripper_width
+            trans, rot = compute_distance_between_two_transforms(curt_base_ht_ee, last_base_ht_ee)
+            rospy.loginfo_throttle(1, "Recording!")
+            if trans >= self.min_trans or rot >= self.min_rot or abs(diff_gripper_width) >= 0.01:
+                if len(self.img_deque) > 0:
+                    self.base_ht_ee_traj.append(curt_base_ht_ee)
+                    self.gripper_status.append(int(self.arm_ctrl.gripper_ctl.is_grasping()))
+                    self.q_traj.append(self.arm_ctrl.q_with_gripper_queue[-1])
+                    dq_with_gripper = np.append(self.arm_ctrl.dq_queue[-1], diff_gripper_width)
+                    self.dq_traj.append(dq_with_gripper)
+                    self.rgb_imgs.append(self.img_deque.pop())
 
-        # store the observations and actions
-        for o, a in zip(obs_replay, action_replay):
-            data_dict['/observations/qpos'].append(o['qpos'])
-            data_dict['/observations/qvel'].append(o['qvel'])
-            data_dict['/action'].append(a)
-            # store the images
-            for cam_name in cfg['camera_names']:
-                data_dict[f'/observations/images/{cam_name}'].append(o['images'][cam_name])
+                    last_base_ht_ee = np.copy(curt_base_ht_ee)
+                    last_gripper_width = np.copy(curt_gripper_width)
 
-        t0 = time()
-        max_timesteps = len(data_dict['/observations/qpos'])
+            rospy.loginfo_throttle(1, "Recording is Going On!!")
+
+        # add the final pose
+        rospy.sleep(1)
+        self.rgb_imgs.append(self.img_deque.pop())
+        self.q_traj.append(self.arm_ctrl.q_with_gripper_queue[-1])
+        dq_with_gripper = np.append(self.arm_ctrl.dq_queue[-1], 0)
+        self.dq_traj.append(dq_with_gripper) 
+        self.base_ht_ee_traj.append(self.arm_ctrl.base_ht_ee_queue[-1])
+        self.gripper_status.append(int(self.arm_ctrl.gripper_ctl.is_grasping()))
+        self.num_waypoints = len(self.q_traj)
+
+        self.listener.stop()
+        self.recorder_logger.warning("Stop Recording for Corrective Demonstration")
+
+        # construct states and actions
+        action = copy.deepcopy(self.q_traj[1:])
+        action.append(self.q_traj[-1])
+
+        # construct the dataset
+        self.data = {'/observations/qpos': self.q_traj,
+                     '/observations/qvel': self.dq_traj,
+                     '/observations/images/front': self.rgb_imgs,
+                     '/action': action}
+
+        self.convert_data_to_hdf5()
+
+    def convert_data_to_hdf5(self):
+        max_timesteps = len(self.data['/observations/qpos'])
         # create data dir if it doesn't exist
-        data_dir = os.path.join(cfg['dataset_dir'], task)
-        if not os.path.exists(data_dir): os.makedirs(data_dir)
+        os.makedirs(self.data_path, exist_ok=True)
+
         # count number of files in the directory
-        idx = len([name for name in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, name))])
-        dataset_path = os.path.join(data_dir, f'episode_{idx}')
+        idx = len([name for name in os.listdir(self.data_path) if os.path.isfile(os.path.join(self.data_path, name))])
+        dataset_path = os.path.join(self.data_path, f'episode_{idx}')
+
         # save the data
         with h5py.File(dataset_path + '.hdf5', 'w', rdcc_nbytes=1024 ** 2 * 2) as root:
             root.attrs['sim'] = True
             obs = root.create_group('observations')
-            image = obs.create_group('images')
-            for cam_name in cfg['camera_names']:
-                _ = image.create_dataset(cam_name, (max_timesteps, cfg['cam_height'], cfg['cam_width'], 3), dtype='uint8',
-                                        chunks=(1, cfg['cam_height'], cfg['cam_width'], 3), )
-            qpos = obs.create_dataset('qpos', (max_timesteps, cfg['state_dim']))
-            qvel = obs.create_dataset('qvel', (max_timesteps, cfg['state_dim']))
-            # image = obs.create_dataset("image", (max_timesteps, 240, 320, 3), dtype='uint8', chunks=(1, 240, 320, 3))
+            qpos = obs.create_dataset('qpos', (max_timesteps, self.cfg['state_dim']))
+            qvel = obs.create_dataset('qvel', (max_timesteps, self.cfg['state_dim']))
             action = root.create_dataset('action', (max_timesteps, cfg['action_dim']))
-            
-            for name, array in data_dict.items():
+            image = obs.create_group('images')
+            image.create_dataset("front", (max_timesteps, self.cfg['cam_height'], self.cfg['cam_width'], 3), dtype='uint8',
+                                 chunks=(1, self.cfg['cam_height'], self.cfg['cam_width'], 3))
+            for name, array in self.data.items():
                 root[name][...] = array
-    
-    leader._disable_torque()
-    follower._disable_torque()
+
+        self.recorder_logger.info("Exported dataset to: {}".format(dataset_path + '.hdf5'))
+
+
+if __name__ == "__main__":
+    # parse the task name via command line
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--task', type=str, default='latch_backup')
+    args = parser.parse_args()
+    task = args.task
+    cfg = PANDA_TASK_CONFIG
+
+    arm_ctrl = Arm_Controller(gripper=True)
+    arm_ctrl.activate_gravity_com()
+    recorder = ImgTrajectoryRecorder(arm_ctrl, cfg['dataset_dir']+task, min_trans=0.005, min_rot=0.05, config=PANDA_TASK_CONFIG)
+
+    recorder.recording()
+    arm_ctrl.opening_gripper()
+
+    print("debug")
+
+

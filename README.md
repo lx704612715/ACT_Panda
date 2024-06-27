@@ -1,3 +1,27 @@
+# Documentation for training ACT with a Panda arm
+
+### Record demonstration
+```bash
+ssh -X robotics@controller
+roslaunch panda_hybrid_automaton_manager panda_ha.launch
+python3 act_panda/demonstration/record_episodes.py --task latch
+```
+
+### Align all demonstration data to the same episode length
+```bash
+python3 act_panda/demonstration/align_episode.py 
+```
+
+### Train ACT policy
+```bash
+python3 act_panda/training/train_latch.py --task latch
+```
+
+### Inference with Panda Robot
+```bash
+python3 act_panda/evaluation/ACT_controller.py
+```
+
 # Imitation Learning for 250$ robot arm
 This repository contains a re-adapatation of [Action Chunking Transformer](https://github.com/tonyzhaozh/act/tree/main) that works for this [low-cost robot](https://github.com/AlexanderKoch-Koch/low_cost_robot) design (250$). 
 
@@ -6,7 +30,6 @@ We are sharing the repo so anyone (non-experts included) can train a robot polic
 The sorting task in the video was trained with less than 30 demonstrations on an RTX 3080 and took less than 30min.
 
 https://github.com/Shaka-Labs/ACT/assets/45405956/83c05915-7442-49a4-905a-273fe35e84ee
-
 
 ## AI training
 ### Setup
