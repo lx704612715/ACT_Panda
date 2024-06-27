@@ -1,4 +1,4 @@
-from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
+from act_panda.config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
 import os
 import h5py
 import numpy as np

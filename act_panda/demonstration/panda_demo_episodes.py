@@ -1,4 +1,4 @@
-from config.config import PANDA_TASK_CONFIG
+from act_panda.config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
 import copy
 import os
 import h5py
@@ -132,7 +132,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
 if __name__ == "__main__":
     # parse the task name via command line
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='latch')
+    parser.add_argument('--task', type=str, default='latch_backup')
     parser.add_argument('--num_episodes', type=int, default=0)
     args = parser.parse_args()
     task = args.task

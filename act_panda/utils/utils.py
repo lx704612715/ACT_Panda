@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from act_panda.training.policy import ACTPolicy, CNNMLPPolicy
 
+device = os.environ['DEVICE']
 
 class EpisodicDataset(torch.utils.data.Dataset):
     def __init__(self, episode_ids, dataset_dir, camera_names, norm_stats):
@@ -164,6 +165,12 @@ def load_hdf5(dataset_path):
     return qpos, qvel, action, image_dict
 
 
+def forward_pass(data, policy):
+    image_data, qpos_data, action_data, is_pad = data
+    image_data, qpos_data, action_data, is_pad = image_data.to(device), qpos_data.to(device), action_data.to(device), is_pad.to(device)
+    return policy(qpos_data, image_data, action_data, is_pad)  # TODO remove Non
+
+
 def sample_box_pose():
     x_range = [0.0, 0.2]
     y_range = [0.4, 0.6]
@@ -212,6 +219,7 @@ def get_image(images, camera_names, device='cpu'):
     curr_image = torch.from_numpy(curr_image / 255.0).float().to(device).unsqueeze(0)
     return curr_image
 
+
 def compute_dict_mean(epoch_dicts):
     result = {k: None for k in epoch_dicts[0]}
     num_items = len(epoch_dicts)
@@ -222,55 +230,14 @@ def compute_dict_mean(epoch_dicts):
         result[k] = value_sum / num_items
     return result
 
+
 def detach_dict(d):
     new_d = dict()
     for k, v in d.items():
         new_d[k] = v.detach()
     return new_d
 
+
 def set_seed(seed):
     torch.manual_seed(seed)
     np.random.seed(seed)
-
-
-def pos2pwm(pos:np.ndarray) -> np.ndarray:
-    """
-    :param pos: numpy array of joint positions in range [-pi, pi]
-    :return: numpy array of pwm values in range [0, 4096]
-    """ 
-    return (pos / 3.14 + 1.) * 2048
-    
-def pwm2pos(pwm:np.ndarray) -> np.ndarray:
-    """
-    :param pwm: numpy array of pwm values in range [0, 4096]
-    :return: numpy array of joint positions in range [-pi, pi]
-    """
-    return (pwm / 2048 - 1) * 3.14
-
-def pwm2vel(pwm:np.ndarray) -> np.ndarray:
-    """
-    :param pwm: numpy array of pwm/s joint velocities
-    :return: numpy array of rad/s joint velocities 
-    """
-    return pwm * 3.14 / 2048
-
-def vel2pwm(vel:np.ndarray) -> np.ndarray:
-    """
-    :param vel: numpy array of rad/s joint velocities
-    :return: numpy array of pwm/s joint velocities
-    """
-    return vel * 2048 / 3.14
-    
-def pwm2norm(x:np.ndarray) -> np.ndarray:
-    """
-    :param x: numpy array of pwm values in range [0, 4096]
-    :return: numpy array of values in range [0, 1]
-    """
-    return x / 4096
-    
-def norm2pwm(x:np.ndarray) -> np.ndarray:
-    """
-    :param x: numpy array of values in range [0, 1]
-    :return: numpy array of pwm values in range [0, 4096]
-    """
-    return x * 4096

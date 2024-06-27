@@ -1,8 +1,6 @@
-from config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG, ROBOT_PORTS # must import first
+from act_panda.config.config import POLICY_CONFIG, TASK_CONFIG, TRAIN_CONFIG  # must import first
 
-import os
 import cv2
-import torch
 import pickle
 import argparse
 from time import time
@@ -13,7 +11,7 @@ from act_panda.utils.utils import *
 
 # parse the task name via command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--task', type=str, default='latch')
+parser.add_argument('--task', type=str, default='latch_backup')
 args = parser.parse_args()
 task = args.task
 
