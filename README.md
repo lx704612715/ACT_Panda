@@ -19,7 +19,7 @@ python3 act_panda/training/train_latch.py --task latch
 
 ### Inference with Panda Robot
 ```bash
-python3 act_panda/evaluation/ACT_controller.py
+python3 act_panda/evaluation/act_controller.py
 ```
 
 # Imitation Learning for 250$ robot arm

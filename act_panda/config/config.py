@@ -7,7 +7,7 @@ assert act_project_dir is not None, "No ACT_PROJECT_DIR set! Make sure you have 
 # data directory
 DATA_DIR = act_project_dir + '/data/'
 # checkpoint directory
-CHECKPOINT_PATH = act_project_dir + '/checkpoints/'
+CHECKPOINT_DIR = act_project_dir + '/checkpoints/'
 
 device = 'cpu'
 if torch.cuda.is_available(): device = 'cuda'
@@ -50,6 +50,6 @@ PANDA_TRAIN_CONFIG = {
     'batch_size_val': 8,
     'batch_size_train': 8,
     'eval_ckpt_name': 'policy_epoch_90000_seed_42.ckpt',
-    'checkpoint_dir': CHECKPOINT_PATH,
+    'checkpoint_dir': CHECKPOINT_DIR,
     'wandb': True
 }

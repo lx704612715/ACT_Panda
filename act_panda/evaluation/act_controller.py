@@ -1,28 +1,12 @@
 from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG  # must import first
 # standard library
-import os
-import yaml
-import tqdm
-import rospkg
-import torch
-import numpy as np
-import pandas as pd
-import pytransform3d.transformations as py3d_trans
-import pickle
-import torchvision.models as models
-from collections import deque
-from PIL import Image as PIL_Image
-from scipy.special import softmax
-
-# ROS
-import tf
 import rospy
-import message_filters
-from std_msgs.msg import String
-from sensor_msgs.msg import Image, CameraInfo
-from cv_bridge import CvBridge
+import pickle
+import argparse
 import torchvision.transforms as T
-from contact_lfd.LfDusingEC.utils.utils_ros import get_BB_goal, HT_to_pq
+from collections import deque
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 # Scripts
 from contact_lfd.LfDusingEC.utils.utils_ros import get_BB_Joint_goal
@@ -38,9 +22,8 @@ class ACT_Controller(Arm_Controller):
             1. should the robot grasp at the end of the servoing phase?
             2. the path for the trained model
     """
-    def __init__(self, gripper, experiment_dir):
+    def __init__(self, gripper):
         super().__init__(gripper=gripper)
-        self.experiment_dir = experiment_dir
 
         self.bridge = CvBridge()
         self.synchronized_robot_images = deque(maxlen=1)
@@ -60,7 +43,6 @@ class ACT_Controller(Arm_Controller):
         self.train_cfg = PANDA_TRAIN_CONFIG
         self.policy_cfg = PANDA_POLICY_CONFIG
         self.task_cfg = PANDA_TASK_CONFIG
-        self.load_model()
 
         # control loop
         self.init_base_ht_ee = None
@@ -70,18 +52,16 @@ class ACT_Controller(Arm_Controller):
         curt_robot_q_state = self.q_with_gripper_queue[-1]
         self.synchronized_robot_images.append([curt_robot_q_state, curt_rgb_img])
 
-    def load_model(self):
-        ckpt_dir = "/act_panda/training/checkpoints/latch_backup/"
-        ckpt_path = ckpt_dir + "policy_epoch_15000_seed_42.ckpt"
-        # ckpt_path = os.path.join(self.train_cfg['checkpoint_dir'], self.train_cfg['eval_ckpt_name'])
+    def load_model(self, ckpt_dir, ckpt_name):
+        ckpt = ckpt_dir + ckpt_name
         self.policy = make_policy(self.policy_cfg['policy_class'], self.policy_cfg)
-        loading_status = self.policy.load_state_dict(torch.load(ckpt_path, map_location=torch.device(self.device)))
+        loading_status = self.policy.load_state_dict(torch.load(ckpt, map_location=torch.device(self.device)))
         self.ctrl_logger.info("Loading status {}".format(loading_status))
         self.policy.to(self.device)
         self.policy.eval()
 
         # Load normalization stats
-        self.ctrl_logger.info('Loaded'.format(ckpt_path))
+        self.ctrl_logger.info('Loaded'.format(ckpt))
 
         stats_path = ckpt_dir + 'dataset_stats.pkl'
         with open(stats_path, 'rb') as f:
@@ -98,50 +78,60 @@ class ACT_Controller(Arm_Controller):
         query_frequency = 1
         completion_time = 0.1
         num_queries = self.policy_cfg['num_queries']
-        all_time_actions = torch.zeros([self.task_cfg['episode_len'], self.task_cfg['episode_len'] + num_queries,
-                                        self.task_cfg['state_dim']]).to(self.device)
-        qpos_history = torch.zeros((1, self.task_cfg['episode_len'], self.task_cfg['state_dim'])).to(self.device)
+
+        all_time_actions = np.zeros([self.task_cfg['episode_len'], self.task_cfg['episode_len'] + num_queries, self.task_cfg['state_dim']])
+        qpos_history = np.zeros((1, self.task_cfg['episode_len'], self.task_cfg['state_dim']))
+
+
+        # we use mock state as the robot state for the gripper width, because we cannot control the panda gripper contiously
+        mock_last_d_gripper_width = self.q_with_gripper_queue[-1][-1]
 
         while not rospy.is_shutdown() and self.ham_working:
             if len(self.synchronized_robot_images) == 0:
                 continue
 
             q_pos, rgb_image = self.synchronized_robot_images.popleft()
+            q_pos[-1] = mock_last_d_gripper_width
             norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
+            # replace the gripper width with the last desired gripper width
+
             norm_q_pos_tensor = torch.from_numpy(norm_q_pos).float().to(self.device).unsqueeze(0)
-            qpos_history[:, t] = norm_q_pos_tensor
+            qpos_history[:, t] = norm_q_pos
             img_tensor = self.preprocess(rgb_image).to(self.device).unsqueeze(0)
             img_tensor = img_tensor.unsqueeze(0) # we only use one camera
 
-            all_actions = self.policy(norm_q_pos_tensor, img_tensor)
+            all_actions_tensor = self.policy(norm_q_pos_tensor, img_tensor)
+            all_actions_array = all_actions_tensor.cpu().detach().numpy()
 
             if self.policy_cfg['temporal_agg']:
-                all_time_actions[[t], t:t + num_queries] = all_actions
+                all_time_actions[[t], t:t + num_queries] = all_actions_array
                 actions_for_curr_step = all_time_actions[:, t]
-                actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
+                actions_populated = np.all(actions_for_curr_step != 0, axis=1)
                 actions_for_curr_step = actions_for_curr_step[actions_populated]
                 k = 0.01
                 exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                 exp_weights = exp_weights / exp_weights.sum()
-                exp_weights = torch.from_numpy(exp_weights.astype(np.float32)).to(self.device).unsqueeze(dim=1)
-                raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
+                exp_weights = exp_weights.reshape(-1, 1)
+                raw_action = np.sum(actions_for_curr_step * exp_weights, axis=0, keepdims=True)
+
             else:
-                raw_action = all_actions[:, t % query_frequency]
+                raw_action = all_actions_array[:, t % query_frequency]
 
-
-            raw_action = raw_action.cpu().detach().numpy()[0]
             action = raw_action * self.stats['action_std'] + self.stats['action_mean']
-
+            action = action.squeeze()
+            mock_last_d_gripper_width = action[-1]
             d_q_pos = action[:7]
+
             clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time)
             joint_goal = get_BB_Joint_goal(kp=kp, kv=kv, d_q=clip_d_q_pos, completion_time=completion_time)
             self.joint_goal_pub.publish(joint_goal)
             rospy.sleep(completion_time)
 
-            if d_q_pos[-1] <= 0.02:
+            if action[-1] <= 0.03 and not self.gripper_ctl.is_grasping():
                 self.grasping()
 
         self.ctrl_logger.critical("Done")
+
 
     def clip_joint_velocity(self, curt_q, d_q, completion_time):
         max_diff_q = np.array([0.1*completion_time for i in range(7)])  # read from franka specifications
@@ -151,12 +141,13 @@ class ACT_Controller(Arm_Controller):
         return clip_d_q
 
 
-def main():
-    # load config file
-    act_controller = ACT_Controller(gripper=True, experiment_dir=None)
-    act_controller.execution()
-    return 0
-
-
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ckpt_dir', type=str, default='latch')
+    parser.add_argument('--ckpt_name', type=str, default='policy_epoch_90000_seed_42.ckpt')
+    args = parser.parse_args()
+    ckpt_dir = PANDA_TRAIN_CONFIG['checkpoint_dir'] + '/' + args.ckpt_dir + '/'
+
+    act_controller = ACT_Controller(gripper=True)
+    act_controller.load_model(ckpt_dir, args.ckpt_name)
+    act_controller.execution()
