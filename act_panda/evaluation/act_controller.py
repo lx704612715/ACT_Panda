@@ -136,7 +136,7 @@ class ACT_Controller(Arm_Controller):
 
         self.ctrl_logger.critical("Done")
 
-
+        
     def clip_joint_velocity(self, curt_q, d_q, completion_time):
         max_diff_q = np.array([0.1*completion_time for i in range(7)])  # read from franka specifications
         diff_q = d_q - curt_q

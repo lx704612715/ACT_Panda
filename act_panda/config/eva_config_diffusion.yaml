@@ -1,0 +1,34 @@
+task_config:
+  dataset_dir: &dataset_dir None
+  episode_len: &episode_len 300
+  state_dim: &state_dim 8
+  action_dim: &action_dim 8
+  cam_width: &cam_width 640
+  cam_height: &cam_height 480
+  camera_names: &camera_names [ 'front' ]
+
+policy_config:
+  lr: 0.00001
+  policy_class: 'Diffusion'
+  camera_names: *camera_names
+  num_queries: 30
+  vq: False
+  ema_power: 0.75
+  observation_horizon: 1
+  action_horizon: 8
+  prediction_horizon: 30
+  num_inference_timesteps: 10
+  temporal_agg: True
+  state_dim: *state_dim
+  action_dim: *action_dim
+
+train_config:
+  seed: 42
+  num_epochs: 500000
+  batch_size_val: 8
+  batch_size_train: 8
+  eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
+  checkpoint_dir: None
+  wandb: True
+
+
