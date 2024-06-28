@@ -1,5 +1,7 @@
 from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG  # must import first
 # standard library
+import os
+import yaml
 import rospy
 import pickle
 import argparse
@@ -22,8 +24,12 @@ class ACT_Controller(Arm_Controller):
             1. should the robot grasp at the end of the servoing phase?
             2. the path for the trained model
     """
-    def __init__(self, gripper):
+    def __init__(self, config, gripper):
         super().__init__(gripper=gripper)
+        self.config = config
+        self.train_cfg = self.config['train_config']
+        self.policy_cfg = self.config['policy_config']
+        self.task_cfg = self.config["task_config"]
 
         self.bridge = CvBridge()
         self.synchronized_robot_images = deque(maxlen=1)
@@ -40,9 +46,6 @@ class ACT_Controller(Arm_Controller):
         # load model
         self.stats = None  # mean and std for each dataset
         self.policy = None
-        self.train_cfg = PANDA_TRAIN_CONFIG
-        self.policy_cfg = PANDA_POLICY_CONFIG
-        self.task_cfg = PANDA_TASK_CONFIG
 
         # control loop
         self.init_base_ht_ee = None
@@ -52,8 +55,9 @@ class ACT_Controller(Arm_Controller):
         curt_robot_q_state = self.q_with_gripper_queue[-1]
         self.synchronized_robot_images.append([curt_robot_q_state, curt_rgb_img])
 
-    def load_model(self, ckpt_dir, ckpt_name):
-        ckpt = ckpt_dir + ckpt_name
+    def load_model(self):
+        # ckpt = ckpt_dir + ckpt_name
+        ckpt = None
         self.policy = make_policy(self.policy_cfg['policy_class'], self.policy_cfg)
         loading_status = self.policy.load_state_dict(torch.load(ckpt, map_location=torch.device(self.device)))
         self.ctrl_logger.info("Loading status {}".format(loading_status))
@@ -143,11 +147,16 @@ class ACT_Controller(Arm_Controller):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ckpt_dir', type=str, default='latch')
-    parser.add_argument('--ckpt_name', type=str, default='policy_epoch_90000_seed_42.ckpt')
+    parser.add_argument('--config', type=str, default='eva_config_act')
     args = parser.parse_args()
+    config_name = args.config
+    act_project_dir = os.getenv("ACT_PROJECT_DIR")
+    config_path = act_project_dir + '/act_panda/config/' + config_name + '.yaml'
+    config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
+
     ckpt_dir = PANDA_TRAIN_CONFIG['checkpoint_dir'] + '/' + args.ckpt_dir + '/'
 
-    act_controller = ACT_Controller(gripper=True)
-    act_controller.load_model(ckpt_dir, args.ckpt_name)
+    act_controller = ACT_Controller(config=config, gripper=True)
+
+    act_controller.load_model()
     act_controller.execution()

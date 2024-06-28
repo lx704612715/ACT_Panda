@@ -1,6 +1,7 @@
 from act_panda.config.config import PANDA_TRAIN_CONFIG, PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, DIFFUSION_POLICY_CONFIG  # must import first
 
 import sys
+import yaml
 import wandb
 import pickle
 import argparse
@@ -114,15 +115,20 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
     
 
 if __name__ == '__main__':
-    task_cfg = PANDA_TASK_CONFIG
-    train_cfg = PANDA_TRAIN_CONFIG
-    # policy_config = PANDA_POLICY_CONFIG()
-    policy_config = DIFFUSION_POLICY_CONFIG
-
-    # parse the task name via command line
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='diffusion')
+    parser.add_argument('--config', type=str, default='train_config_diffusion')
     args = parser.parse_args()
+    config_name = args.config
+    act_project_dir = os.getenv("ACT_PROJECT_DIR")
+    config_path = act_project_dir + '/act_panda/config/' + config_name + '.yaml'
+    config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
+
+    task_cfg = config['task_config']
+    train_cfg = config['train_config']
+    policy_config = config['policy_config']
+
+    # parse the task name via command line
     task = args.task
     
     # Get the current date and time
@@ -131,7 +137,7 @@ if __name__ == '__main__':
     subdir_name = f"{task}_{now.strftime('%H-%M')}_{now.strftime('%m-%d')}"
 
     # configs
-    checkpoint_dir = os.path.join(train_cfg['checkpoint_dir'], subdir_name)
+    checkpoint_dir = os.path.join(act_project_dir+train_cfg['checkpoint_dir'], subdir_name)
 
     # device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -147,7 +153,7 @@ if __name__ == '__main__':
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     # number of training episodes
-    data_dir = task_cfg['dataset_dir']
+    data_dir = act_project_dir + task_cfg['dataset_dir']
     num_episodes = len(os.listdir(data_dir))
 
     # load data
