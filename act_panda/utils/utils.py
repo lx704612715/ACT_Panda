@@ -5,7 +5,7 @@ import numpy as np
 from einops import rearrange
 from torch.utils.data import DataLoader
 
-from act_panda.training.policy import ACTPolicy, CNNMLPPolicy
+from act_panda.training.policy import ACTPolicy, CNNMLPPolicy, DiffusionPolicy
 
 device = os.environ['DEVICE']
 
@@ -135,6 +135,8 @@ def make_policy(policy_class, policy_config):
         policy = ACTPolicy(policy_config)
     elif policy_class == "CNNMLP":
         policy = CNNMLPPolicy(policy_config)
+    elif policy_class == "Diffusion":
+        policy = DiffusionPolicy(policy_config)
     else:
         raise ValueError(f"Unknown policy class: {policy_class}")
     return policy
@@ -144,6 +146,8 @@ def make_optimizer(policy_class, policy):
     if policy_class == 'ACT':
         optimizer = policy.configure_optimizers()
     elif policy_class == 'CNNMLP':
+        optimizer = policy.configure_optimizers()
+    elif policy_class == "Diffusion":
         optimizer = policy.configure_optimizers()
     else:
         raise ValueError(f"Unknown policy class: {policy_class}")

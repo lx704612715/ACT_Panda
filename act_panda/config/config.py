@@ -43,6 +43,31 @@ PANDA_POLICY_CONFIG = {
     'action_dim': PANDA_TASK_CONFIG['action_dim'],
 }
 
+# policy config
+DIFFUSION_POLICY_CONFIG = {
+    'lr': 1e-5,
+    'kl_weight': 10,
+    'hidden_dim': 512,
+    'dim_feedforward': 3200,
+    'lr_backbone': 1e-5,
+    'backbone': 'resnet18',
+    'enc_layers': 4,
+    'dec_layers': 7,
+    'nheads': 8,
+    'camera_names': ['front'],
+
+    'policy_class': 'Diffusion',
+    'vq': False,
+    'ema_power': 0.75,
+    'observation_horizon': 1,
+    'action_horizon': 8,
+    'num_queries': 30,
+    'prediction_horizon': 30,
+    'num_inference_timesteps': 10,
+    'state_dim': PANDA_TASK_CONFIG['state_dim'],
+    'action_dim': PANDA_TASK_CONFIG['action_dim'],
+}
+
 # training config
 PANDA_TRAIN_CONFIG = {
     'seed': 42,

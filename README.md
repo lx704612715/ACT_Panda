@@ -1,5 +1,24 @@
 # Documentation for training ACT with a Panda arm
 
+### Environment Setup
+```bash
+# For ACT
+git clone git@github.com:lx704612715/ACT_Panda.git
+cd ACT_Panda
+conda create --name act python=3.9
+conda activate act
+pip install -r requirements.txt
+
+git clone git@github.com:lx704612715/detr.git
+cd detr
+pip install -e .
+cd ..
+# For Diffusion
+git clone --branch r2d2 git@github.com:ARISE-Initiative/robomimic.git
+cd robomimic
+pip install -e .
+```
+
 ### Record demonstration
 ```bash
 ssh -X robotics@controller

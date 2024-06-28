@@ -1,0 +1,36 @@
+task_config:
+  dataset_dir: &dataset_dir None
+  episode_len: &episode_len 300
+  state_dim: &state_dim 8
+  action_dim: &action_dim 8
+  cam_width: &cam_width 640
+  cam_height: &cam_height 480
+  camera_names: &camera_names [ 'front' ]
+
+policy_config:
+  policy_class: 'ACT'
+  camera_names: *camera_names
+  lr: 1e-5
+  num_queries: 30
+  kl_weight: 10
+  hidden_dim: 512
+  dim_feedforward': 3200
+  lr_backbone: 1e-5
+  backbone: 'resnet18'
+  enc_layers: 4
+  dec_layers: 7
+  nheads: 8
+  temporal_agg: True
+  state_dim: *state_dim
+  action_dim: *action_dim
+
+train_config:
+  seed: 42
+  num_epochs: 500000
+  batch_size_val: 8
+  batch_size_train: 8
+  eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
+  checkpoint_dir: '/checkpoints/latch/'
+  wandb: True
+
+

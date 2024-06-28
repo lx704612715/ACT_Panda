@@ -1,4 +1,4 @@
-from act_panda.config.config import PANDA_TRAIN_CONFIG, PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG  # must import first
+from act_panda.config.config import PANDA_TRAIN_CONFIG, PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, DIFFUSION_POLICY_CONFIG  # must import first
 
 import sys
 import wandb
@@ -116,11 +116,12 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 if __name__ == '__main__':
     task_cfg = PANDA_TASK_CONFIG
     train_cfg = PANDA_TRAIN_CONFIG
-    policy_config = PANDA_POLICY_CONFIG
+    # policy_config = PANDA_POLICY_CONFIG()
+    policy_config = DIFFUSION_POLICY_CONFIG
 
     # parse the task name via command line
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='latch_backup')
+    parser.add_argument('--task', type=str, default='diffusion')
     args = parser.parse_args()
     task = args.task
     
