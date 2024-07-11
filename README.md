@@ -23,7 +23,10 @@ pip install -e .
 ```bash
 ssh -X robotics@controller
 roslaunch panda_hybrid_automaton_manager panda_ha.launch
+# record a single episode
 python3 act_panda/demonstration/record_episodes.py --task latch
+# or record several episodes with a uniform distributed starting poses
+python3 act_panda/demonstration/record_uniform_demonstration.py --task latch
 ```
 
 ### Align all demonstration data to the same episode length
@@ -31,12 +34,20 @@ python3 act_panda/demonstration/record_episodes.py --task latch
 python3 act_panda/demonstration/align_episode.py 
 ```
 
+### Visualize recorded datasets
+This script will convert image files to videos and plot the robot states 
+```bash
+python3 act_panda/demonstration/replay_all_episodes.py 
+```
+
 ### Train ACT policy
+Modify the path to the dataset in the config file in the /config/train_config_{}.yaml
 ```bash
 python3 act_panda/training/train_latch.py --task latch
 ```
 
 ### Inference with Panda Robot
+Modify the checkpoint path in the config file in the /config/eva_config_{}.yaml
 ```bash
 python3 act_panda/evaluation/act_controller.py
 ```

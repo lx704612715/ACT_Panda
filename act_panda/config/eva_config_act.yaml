@@ -1,5 +1,5 @@
 task_config:
-  dataset_dir: &dataset_dir None
+  dataset_dir: &dataset_dir '/data/insertion_puzzle/'
   episode_len: &episode_len 300
   state_dim: &state_dim 8
   action_dim: &action_dim 8
@@ -10,12 +10,12 @@ task_config:
 policy_config:
   policy_class: 'ACT'
   camera_names: *camera_names
-  lr: 1e-5
+  lr: 0.00001
   num_queries: 30
   kl_weight: 10
   hidden_dim: 512
   dim_feedforward': 3200
-  lr_backbone: 1e-5
+  lr_backbone: 0.00001
   backbone: 'resnet18'
   enc_layers: 4
   dec_layers: 7
@@ -29,8 +29,8 @@ train_config:
   num_epochs: 500000
   batch_size_val: 8
   batch_size_train: 8
-  eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
-  checkpoint_dir: None
+  eval_ckpt_name: 'best_ckpt_epoch_18987.ckpt'
+  checkpoint_dir: '/checkpoints/insertion_puzzle/act_insertion_puzzle_21-45_07-10/'
   wandb: True
 
 

@@ -2,9 +2,11 @@ from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PAND
 import copy
 import os
 import h5py
+import yaml
 import argparse
 import numpy as np
 from collections import deque
+from pynput.keyboard import Listener, Key
 
 # Own scripts
 from contact_lfd.LfDIP.controller.arm_controller import Arm_Controller
@@ -119,7 +121,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
             obs = root.create_group('observations')
             qpos = obs.create_dataset('qpos', (max_timesteps, self.cfg['state_dim']))
             qvel = obs.create_dataset('qvel', (max_timesteps, self.cfg['state_dim']))
-            action = root.create_dataset('action', (max_timesteps, cfg['action_dim']))
+            action = root.create_dataset('action', (max_timesteps, self.cfg['action_dim']))
             image = obs.create_group('images')
             image.create_dataset("front", (max_timesteps, self.cfg['cam_height'], self.cfg['cam_width'], 3), dtype='uint8',
                                  chunks=(1, self.cfg['cam_height'], self.cfg['cam_width'], 3))
@@ -127,20 +129,43 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
                 root[name][...] = array
 
         self.recorder_logger.info("Exported dataset to: {}".format(dataset_path + '.hdf5'))
+    
+    def reset_recording(self):
+        """ reset the data to prepare for the next recording step
+        """
+        self.data = {}
+        self.start_recording = True
+        self.rgb_imgs = []
+        self.q_traj = []
+        self.dq_traj = []
+        self.base_ht_ee_traj = []
+        self.gripper_status = []
+        self.switch_gripper_indexes = []
+        self.num_waypoints = 0
+        self.listener = Listener(on_press=self._on_press)
+        self.recorder_logger.critical("Reset Recording Finished!")
 
 
 if __name__ == "__main__":
     # parse the task name via command line
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='latch_backup')
+    parser.add_argument('--task', type=str, default='insertion_puzzle')
+    parser.add_argument('--config', type=str, default='train_config_act')
     args = parser.parse_args()
-    task = args.task
-    cfg = PANDA_TASK_CONFIG
+    config_name = args.config
+    act_project_dir = os.getenv("ACT_PROJECT_DIR")
+    config_path = act_project_dir + '/act_panda/config/' + config_name + '.yaml'
+    config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
+
+    task_name = args.task
+    task_config = config['task_config']
+    dataset_dir = act_project_dir + '/data/' + task_name
+    os.makedirs(dataset_dir, exist_ok=True)
 
     arm_ctrl = Arm_Controller(gripper=True)
     arm_ctrl.activate_gravity_com()
-    recorder = ImgTrajectoryRecorder(arm_ctrl, cfg['dataset_dir']+task, min_trans=0.005, min_rot=0.05, config=PANDA_TASK_CONFIG)
 
+    recorder = ImgTrajectoryRecorder(arm_ctrl, dataset_dir, min_trans=0.005, min_rot=0.05, config=task_config)
     recorder.recording()
     arm_ctrl.opening_gripper()
 

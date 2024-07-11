@@ -55,18 +55,16 @@ class ACT_Controller(Arm_Controller):
         curt_robot_q_state = self.q_with_gripper_queue[-1]
         self.synchronized_robot_images.append([curt_robot_q_state, curt_rgb_img])
 
-    def load_model(self):
-        # ckpt = ckpt_dir + ckpt_name
-        ckpt = None
+    def load_model(self, ckpt_dir, ckpt_path):
+        self.ctrl_logger.info('Loaded'.format(ckpt_dir))
+
         self.policy = make_policy(self.policy_cfg['policy_class'], self.policy_cfg)
-        loading_status = self.policy.load_state_dict(torch.load(ckpt, map_location=torch.device(self.device)))
+        loading_status = self.policy.load_state_dict(torch.load(ckpt_path, map_location=torch.device(self.device)))
         self.ctrl_logger.info("Loading status {}".format(loading_status))
         self.policy.to(self.device)
         self.policy.eval()
 
         # Load normalization stats
-        self.ctrl_logger.info('Loaded'.format(ckpt))
-
         stats_path = ckpt_dir + 'dataset_stats.pkl'
         with open(stats_path, 'rb') as f:
             self.stats = pickle.load(f)
@@ -154,9 +152,10 @@ if __name__ == "__main__":
     config_path = act_project_dir + '/act_panda/config/' + config_name + '.yaml'
     config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
 
-    ckpt_dir = PANDA_TRAIN_CONFIG['checkpoint_dir'] + '/' + args.ckpt_dir + '/'
-
     act_controller = ACT_Controller(config=config, gripper=True)
 
-    act_controller.load_model()
+    ckpt_dir = act_project_dir + config['train_config']['checkpoint_dir']
+    ckpt_path = ckpt_dir + config['train_config']['eval_ckpt_name'] 
+    
+    act_controller.load_model(ckpt_dir, ckpt_path)
     act_controller.execution()

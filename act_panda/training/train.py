@@ -1,11 +1,14 @@
-from act_panda.config.config import PANDA_TRAIN_CONFIG, PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, DIFFUSION_POLICY_CONFIG  # must import first
-
+import os
 import sys
 import yaml
 import wandb
 import pickle
 import argparse
 import matplotlib.pyplot as plt
+sys.path.append("/home/lx/experiments/lx/act/ACT_Panda")
+
+from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
+# act_project_dir = os.getenv("ACT_PROJECT_DIR") + '/act_panda'
 
 from loguru import logger
 from copy import deepcopy
@@ -116,8 +119,8 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='diffusion')
-    parser.add_argument('--config', type=str, default='train_config_diffusion')
+    parser.add_argument('--task', type=str, default='act_insertion_puzzle')
+    parser.add_argument('--config', type=str, default='train_config_act')
     args = parser.parse_args()
     config_name = args.config
     act_project_dir = os.getenv("ACT_PROJECT_DIR")
@@ -138,6 +141,7 @@ if __name__ == '__main__':
 
     # configs
     checkpoint_dir = os.path.join(act_project_dir+train_cfg['checkpoint_dir'], subdir_name)
+    logger.info("Checkpoint dir: {}".format(checkpoint_dir))
 
     # device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -154,6 +158,8 @@ if __name__ == '__main__':
 
     # number of training episodes
     data_dir = act_project_dir + task_cfg['dataset_dir']
+    logger.info("Dataset dir: {}".format(data_dir))
+
     num_episodes = len(os.listdir(data_dir))
 
     # load data
