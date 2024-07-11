@@ -32,6 +32,8 @@ if __name__ == "__main__":
     # mean_episode_len = int(np.mean(shapes))
     max_episode_len = int(np.max(shapes))
     logger.info(f"Mean episode length: {max_episode_len}")
+    input("Press Enter to start aligning...")
+    max_episode_len = 160  # the episode length should be able to divided by action_horizon.....
 
     for name in aligned_data.keys():
         episode_len = aligned_data[name]['qpos'].shape[0]
@@ -40,7 +42,7 @@ if __name__ == "__main__":
             aligned_data[name]['qvel'] = aligned_data[name]['qvel'][:max_episode_len]
             aligned_data[name]['action'] = aligned_data[name]['action'][:max_episode_len]
             for cam_name in aligned_data[name]['image_dict'].keys():
-                aligned_data[name]['image_dict'][cam_name] = aligned_data[name]['image_dict'][cam_name][:mean_episode_len]
+                aligned_data[name]['image_dict'][cam_name] = aligned_data[name]['image_dict'][cam_name][:max_episode_len]
         else:
             diff_episode_len = max_episode_len - episode_len
             # repeat the last data value {diff_episode_len} times

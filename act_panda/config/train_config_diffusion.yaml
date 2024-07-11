@@ -1,6 +1,6 @@
 task_config:
   dataset_dir: &dataset_dir '/data/insertion_puzzle/'  # relative to project folder
-  episode_len: &episode_len 300
+  episode_len: &episode_len 100
   state_dim: &state_dim 8
   action_dim: &action_dim 8
   cam_width: &cam_width 640
