@@ -5,7 +5,8 @@ import wandb
 import pickle
 import argparse
 import matplotlib.pyplot as plt
-sys.path.append("/home/lx/experiments/lx/act/ACT_Panda")
+act_project_dir = os.getenv("ACT_PROJECT_DIR")
+sys.path.append(act_project_dir)
 
 from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
 # act_project_dir = os.getenv("ACT_PROJECT_DIR") + '/act_panda'
