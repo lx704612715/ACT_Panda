@@ -9,7 +9,7 @@ from contact_lfd.LfDusingEC.vis.base_plot_funcs import plot_multi_lines
 act_project_dir = os.getenv("ACT_PROJECT_DIR")
 DATA_DIR = act_project_dir + '/data/'
 # Given a dataset dir, iterate all episode in the dir and align the data shape
-dataset_name = 'insertion_puzzle'
+dataset_name = 'FB'
 
 dataset_dir = DATA_DIR + dataset_name + '/'
 output_vis_dir = DATA_DIR + dataset_name + '_vis' + '/'
@@ -31,8 +31,11 @@ for name in tqdm(all_episodes_names):
     aligned_data[name]['image_dict'] = image_dict
 
     # export videos
-    video_path = output_vis_dir + name.split('.')[0] + '.mp4'
+    video_path = output_vis_dir + name.split('.')[0] + '_front.mp4'
     media.write_video(video_path, image_dict['front'], fps=30)
+
+    video_path = output_vis_dir + name.split('.')[0] + '_static.mp4'
+    media.write_video(video_path, image_dict['static'], fps=30)
 
     # export plots
     fig_path = output_vis_dir + name.split('.')[0] + '.png'

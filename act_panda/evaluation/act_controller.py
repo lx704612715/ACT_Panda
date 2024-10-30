@@ -145,7 +145,7 @@ class ACT_Controller(Arm_Controller):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='eva_config_act')
+    parser.add_argument('--config', type=str, default='eva_config_diffusion')
     args = parser.parse_args()
     config_name = args.config
     act_project_dir = os.getenv("ACT_PROJECT_DIR")

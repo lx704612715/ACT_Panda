@@ -3,9 +3,9 @@ task_config:
   episode_len: &episode_len 300
   state_dim: &state_dim 8
   action_dim: &action_dim 8
-  cam_width: &cam_width 640
-  cam_height: &cam_height 480
-  camera_names: &camera_names [ 'front' ]
+  cam_width: &cam_width 320
+  cam_height: &cam_height 240
+  camera_names: &camera_names [ 'front', 'static']
 
 policy_config:
   lr: 0.00001
@@ -28,7 +28,7 @@ train_config:
   batch_size_val: 8
   batch_size_train: 8
   eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
-  checkpoint_dir: None
+  checkpoint_dir: '/checkpoints/latch/'
   wandb: True
 
 
