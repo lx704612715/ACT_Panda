@@ -8,7 +8,7 @@ from detr.main import build_ACT_model_and_optimizer, build_CNNMLP_model_and_opti
 # e = IPython.embed
 
 # For Diffusion Policy
-from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+# from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from collections import OrderedDict
@@ -23,13 +23,13 @@ class ACTPolicy(nn.Module):
         self.model = model  # CVAE decoder
         self.optimizer = optimizer
         self.kl_weight = args_override['kl_weight']
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         print(f'KL Weight {self.kl_weight}')
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-        image = normalize(image)
+
+        image = self.normalize(image)
         if actions is not None: # training time
             actions = actions[:, :self.model.num_queries]
             is_pad = is_pad[:, :self.model.num_queries]

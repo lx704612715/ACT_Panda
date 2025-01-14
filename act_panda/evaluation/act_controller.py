@@ -5,6 +5,7 @@ import yaml
 import rospy
 import pickle
 import argparse
+import message_filters
 import torchvision.transforms as T
 from collections import deque
 from sensor_msgs.msg import Image
@@ -35,9 +36,14 @@ class ACT_Controller(Arm_Controller):
         self.synchronized_robot_images = deque(maxlen=1)
 
         # setup message synchronizer
-        ros_rgb_topic = '/camera/color/image_raw'
-        rospy.wait_for_message(ros_rgb_topic, Image)
-        self.color_image_sub = rospy.Subscriber(ros_rgb_topic, Image, self.img_cb, queue_size=10)
+        rospy.wait_for_message('/camera/color/image_raw', Image)
+        self.iH_image_sub = message_filters.Subscriber('/camera/color/image_raw', Image, queue_size=10)
+        # static camera
+        rospy.wait_for_message('/ptu_camera/color/image_raw', Image)
+        self.static_image_sub = message_filters.Subscriber('/ptu_camera/color/image_raw', Image, queue_size=10)
+        self.ts = message_filters.ApproximateTimeSynchronizer([self.iH_image_sub, self.static_image_sub],
+                                                              queue_size=10, slop=0.1)
+        self.ts.registerCallback(self.img_cb)
 
         # ACT models
         self.device = torch.device("cuda")
@@ -50,10 +56,11 @@ class ACT_Controller(Arm_Controller):
         # control loop
         self.init_base_ht_ee = None
 
-    def img_cb(self, color_img_msg):
-        curt_rgb_img = self.bridge.imgmsg_to_cv2(color_img_msg, desired_encoding="rgb8")
+    def img_cb(self, iH_color_img_msg, static_color_img_msg):
+        iH_color_img = self.bridge.imgmsg_to_cv2(iH_color_img_msg, desired_encoding="rgb8")
+        static_color_img = self.bridge.imgmsg_to_cv2(static_color_img_msg, desired_encoding="rgb8")
         curt_robot_q_state = self.q_with_gripper_queue[-1]
-        self.synchronized_robot_images.append([curt_robot_q_state, curt_rgb_img])
+        self.synchronized_robot_images.append([curt_robot_q_state, iH_color_img, static_color_img])
 
     def load_model(self, ckpt_dir, ckpt_path):
         self.ctrl_logger.info('Loaded'.format(ckpt_dir))
@@ -84,23 +91,26 @@ class ACT_Controller(Arm_Controller):
         all_time_actions = np.zeros([self.task_cfg['episode_len'], self.task_cfg['episode_len'] + num_queries, self.task_cfg['state_dim']])
         qpos_history = np.zeros((1, self.task_cfg['episode_len'], self.task_cfg['state_dim']))
 
-
         # we use mock state as the robot state for the gripper width, because we cannot control the panda gripper contiously
         mock_last_d_gripper_width = self.q_with_gripper_queue[-1][-1]
+
+        # we assume the panda robot has grasped the puzzle piece
+        mock_last_d_gripper_width = self.stats['example_qpos'][0][-1]
 
         while not rospy.is_shutdown() and self.ham_working:
             if len(self.synchronized_robot_images) == 0:
                 continue
 
-            q_pos, rgb_image = self.synchronized_robot_images.popleft()
+            q_pos, iH_color_img, static_color_img = self.synchronized_robot_images.popleft()
             q_pos[-1] = mock_last_d_gripper_width
             norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
             # replace the gripper width with the last desired gripper width
 
             norm_q_pos_tensor = torch.from_numpy(norm_q_pos).float().to(self.device).unsqueeze(0)
             qpos_history[:, t] = norm_q_pos
-            img_tensor = self.preprocess(rgb_image).to(self.device).unsqueeze(0)
-            img_tensor = img_tensor.unsqueeze(0) # we only use one camera
+            iH_img_tensor = self.preprocess(iH_color_img).to(self.device).unsqueeze(0)
+            static_img_tensor = self.preprocess(static_color_img).to(self.device).unsqueeze(0)
+            img_tensor = torch.vstack([iH_img_tensor, static_img_tensor]).unsqueeze(0) # we only use one camera
 
             all_actions_tensor = self.policy(norm_q_pos_tensor, img_tensor)
             all_actions_array = all_actions_tensor.cpu().detach().numpy()
@@ -121,7 +131,6 @@ class ACT_Controller(Arm_Controller):
 
             action = raw_action * self.stats['action_std'] + self.stats['action_mean']
             action = action.squeeze()
-            mock_last_d_gripper_width = action[-1]
             d_q_pos = action[:7]
 
             clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time)
@@ -130,11 +139,12 @@ class ACT_Controller(Arm_Controller):
             rospy.sleep(completion_time)
 
             if action[-1] <= 0.03 and not self.gripper_ctl.is_grasping():
-                self.grasping()
+                # we assume the robot already grasps the object
+                pass
+                # self.grasping()
 
         self.ctrl_logger.critical("Done")
 
-        
     def clip_joint_velocity(self, curt_q, d_q, completion_time):
         max_diff_q = np.array([0.1*completion_time for i in range(7)])  # read from franka specifications
         diff_q = d_q - curt_q
@@ -144,8 +154,9 @@ class ACT_Controller(Arm_Controller):
 
 
 if __name__ == "__main__":
+    rospy.init_node('act_controller')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='eva_config_diffusion')
+    parser.add_argument('--config', type=str, default='eva_config_act')
     args = parser.parse_args()
     config_name = args.config
     act_project_dir = os.getenv("ACT_PROJECT_DIR")

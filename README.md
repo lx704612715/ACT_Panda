@@ -30,12 +30,16 @@ python3 act_panda/demonstration/record_uniform_demonstration.py --task latch
 ```
 
 ### Align all demonstration data to the same episode length
+After recording demonstrations, data should be aligned to the same length for action trunking. 
+Copy the demonstration data to a new folder __aligned and then run this script. We do copy step because this script 
+will directly modify the data. 
 ```bash
 python3 act_panda/demonstration/align_episode.py 
 ```
 
 ### Visualize recorded datasets
-This script will convert image files to videos and plot the robot states 
+This script will convert image files to videos and plot the robot states. We should do it after aligning the
+episode to the same length. 
 ```bash
 python3 act_panda/demonstration/replay_all_episodes.py 
 ```
@@ -51,6 +55,11 @@ Modify the checkpoint path in the config file in the /config/eva_config_{}.yaml
 ```bash
 python3 act_panda/evaluation/act_controller.py
 ```
+
+### Trouble Shooting
+* ImportError: cannot import name 'PreTrainedModel' from 'transformers' (unknown location)
+  * Check the version of transformers: pip install transformer==
+ 
 
 # Imitation Learning for 250$ robot arm
 This repository contains a re-adapatation of [Action Chunking Transformer](https://github.com/tonyzhaozh/act/tree/main) that works for this [low-cost robot](https://github.com/AlexanderKoch-Koch/low_cost_robot) design (250$). 

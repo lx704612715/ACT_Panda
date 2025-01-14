@@ -1,11 +1,11 @@
 task_config:
-  dataset_dir: &dataset_dir '/data/insertion_puzzle/'
+  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
   episode_len: &episode_len 150
   state_dim: &state_dim 8
   action_dim: &action_dim 8
-  cam_width: &cam_width 640
-  cam_height: &cam_height 480
-  camera_names: &camera_names [ 'front','static']
+  cam_width: &cam_width 320
+  cam_height: &cam_height 240
+  camera_names: &camera_names [ 'front', 'static']
 
 policy_config:
   policy_class: 'ACT'
@@ -29,8 +29,8 @@ train_config:
   num_epochs: 500000
   batch_size_val: 8
   batch_size_train: 8
-  eval_ckpt_name: 'best_ckpt_epoch_44.ckpt'
-  checkpoint_dir: '/checkpoints/insertion_puzzle/puzzle_16-07_01-14/'
+  eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
+  checkpoint_dir: '/checkpoints/insertion_puzzle/'
   wandb: True
 
 

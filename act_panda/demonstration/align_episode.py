@@ -11,7 +11,7 @@ if __name__ == "__main__":
     act_project_dir = os.getenv("ACT_PROJECT_DIR")
     DATA_DIR = act_project_dir + '/data/'
     # Given a dataset dir, iterate all episode in the dir and align the data shape
-    dataset_name = 'FB_aligned'
+    dataset_name = 'insertion_puzzle'
     dataset_dir = DATA_DIR + dataset_name + '/'
     processed_dataset_dir = DATA_DIR + dataset_name + "_aligned" + "/"
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     max_episode_len = int(np.max(shapes))
     logger.info(f"Mean episode length: {max_episode_len}")
     input("Press Enter to start aligning...")
-    max_episode_len = 350  # the episode length should be able to divided by action_horizon.....
+    max_episode_len = 150  # the episode length should be able to divided by action_horizon.....
 
     for name in aligned_data.keys():
         episode_len = aligned_data[name]['qpos'].shape[0]
