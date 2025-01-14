@@ -9,7 +9,7 @@ from contact_lfd.LfDusingEC.vis.base_plot_funcs import plot_multi_lines
 act_project_dir = os.getenv("ACT_PROJECT_DIR")
 DATA_DIR = act_project_dir + '/data/'
 # Given a dataset dir, iterate all episode in the dir and align the data shape
-dataset_name = 'FB'
+dataset_name = 'insertion_puzzle_aligned'
 
 dataset_dir = DATA_DIR + dataset_name + '/'
 output_vis_dir = DATA_DIR + dataset_name + '_vis' + '/'

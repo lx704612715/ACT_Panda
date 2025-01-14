@@ -64,7 +64,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
         self.recorder_logger.critical("press ESC to stop recording, press Enter to grasp object")
         self.listener.start()
 
-        last_base_ht_ee = self.arm_ctrl.base_ht_ee_queue[-1]
+        last_base_ht_ee = self.arm_ctrl.get_curt_cartesian_pose()
         last_gripper_width = self.arm_ctrl.q_with_gripper_queue[-1][-1]
 
         self.base_ht_ee_traj.append(last_base_ht_ee)
@@ -79,7 +79,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
         self.gripper_status.append(int(self.arm_ctrl.gripper_ctl.is_grasping()))
 
         while self.start_recording and not rospy.is_shutdown() and self.arm_ctrl.ham_working:
-            curt_base_ht_ee = self.arm_ctrl.base_ht_ee_queue[-1]
+            curt_base_ht_ee = self.arm_ctrl.get_curt_cartesian_pose()
             curt_gripper_width = self.arm_ctrl.q_with_gripper_queue[-1][-1]
             diff_gripper_width = curt_gripper_width - last_gripper_width
             trans, rot = compute_distance_between_two_transforms(curt_base_ht_ee, last_base_ht_ee)
@@ -106,7 +106,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
         self.static_rgb_imgs.append(self.static_img_deque.pop())
         self.q_traj.append(self.arm_ctrl.q_with_gripper_queue[-1])
         self.ee_ft_robot_traj.append(self.arm_ctrl.ft_robot_queue[-1])
-        self.base_ht_ee_traj.append(self.arm_ctrl.base_ht_ee_queue[-1])
+        self.base_ht_ee_traj.append(self.arm_ctrl.get_curt_cartesian_pose())
         self.gripper_status.append(int(self.arm_ctrl.gripper_ctl.is_grasping()))
 
         dq_with_gripper = np.append(self.arm_ctrl.dq_queue[-1], 0)
@@ -169,6 +169,7 @@ class ImgTrajectoryRecorder(TrajectoryRecorder):
         self.q_traj = []
         self.dq_traj = []
         self.base_ht_ee_traj = []
+        self.ee_ft_robot_traj = []
         self.gripper_status = []
         self.switch_gripper_indexes = []
         self.num_waypoints = 0
@@ -180,8 +181,8 @@ if __name__ == "__main__":
     # parse the task name via command line
     rospy.init_node("training")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='FB')  # FB: FurnitureBench
-    parser.add_argument('--config', type=str, default='train_config_act')
+    parser.add_argument('--task', type=str, default='puzzle')  # FB: FurnitureBench
+    parser.add_argument('--config', type=str, default='train_config_act_puzzle')
     args = parser.parse_args()
     config_name = args.config
     act_project_dir = os.getenv("ACT_PROJECT_DIR")
