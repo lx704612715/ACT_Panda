@@ -57,12 +57,12 @@ class CNNMLPPolicy(nn.Module):
         model, optimizer = build_CNNMLP_model_and_optimizer(args_override)
         self.model = model # decoder
         self.optimizer = optimizer
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None # TODO
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-        image = normalize(image)
+
+        image = self.normalize(image)
         if actions is not None: # training time
             actions = actions[:, 0]
             a_hat = self.model(qpos, image, env_state, actions)
@@ -107,7 +107,6 @@ class DiffusionPolicy(nn.Module):
         self.ema_power = args_override['ema_power']
         self.lr = args_override['lr']
         self.weight_decay = 0
-
         self.num_kp = 32
         self.feature_dimension = 64
         self.ac_dim = args_override['action_dim']  # 14 + 2
@@ -118,7 +117,7 @@ class DiffusionPolicy(nn.Module):
         linears = []
         for _ in self.camera_names:
             backbones.append(ResNet18Conv(**{'input_channel': 3, 'pretrained': False, 'input_coord_conv': False}))
-            pools.append(SpatialSoftmax(**{'input_shape': [512, 15, 20], 'num_kp': self.num_kp, 'temperature': 1.0,
+            pools.append(SpatialSoftmax(**{'input_shape': [512, 8, 10], 'num_kp': self.num_kp, 'temperature': 1.0,
                                            'learnable_temperature': False, 'noise_std': 0.0}))
             linears.append(torch.nn.Linear(int(np.prod([self.num_kp, 2])), self.feature_dimension))
         backbones = nn.ModuleList(backbones)

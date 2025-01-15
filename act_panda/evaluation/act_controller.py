@@ -77,15 +77,16 @@ class ACT_Controller(Arm_Controller):
             self.stats = pickle.load(f)
 
     def execution(self):
-        kp = np.array([500, 400, 400, 300, 300, 200, 100])
+        kp = np.array([400, 300, 250, 200, 200, 100, 50])
         kv = np.sqrt(kp)
         self.activate_blackboard_joint_ha(kp=kp, kv=kv, interpolation_type="linear", reinterpolation="1", epsilon="1")
 
         obs_replay = []
         action_replay = []
         t = 0
+        k = 0.01
         query_frequency = 1
-        completion_time = 0.1
+        completion_time = 0.2
         num_queries = self.policy_cfg['num_queries']
 
         all_time_actions = np.zeros([self.task_cfg['episode_len'], self.task_cfg['episode_len'] + num_queries, self.task_cfg['state_dim']])
@@ -96,23 +97,24 @@ class ACT_Controller(Arm_Controller):
 
         # we assume the panda robot has grasped the puzzle piece
         mock_last_d_gripper_width = self.stats['example_qpos'][0][-1]
+        self.policy_cfg['temporal_agg'] = True
 
-        while not rospy.is_shutdown() and self.ham_working:
+        while not rospy.is_shutdown() and t < self.task_cfg['episode_len']:
             if len(self.synchronized_robot_images) == 0:
                 continue
 
+            # replace the gripper width with the last desired gripper width
             q_pos, iH_color_img, static_color_img = self.synchronized_robot_images.popleft()
             q_pos[-1] = mock_last_d_gripper_width
-            norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
-            # replace the gripper width with the last desired gripper width
 
+            # normalize the input data and transform to torch.tensor()
+            norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
             norm_q_pos_tensor = torch.from_numpy(norm_q_pos).float().to(self.device).unsqueeze(0)
             qpos_history[:, t] = norm_q_pos
             iH_img_tensor = self.preprocess(iH_color_img).to(self.device).unsqueeze(0)
             static_img_tensor = self.preprocess(static_color_img).to(self.device).unsqueeze(0)
-            img_tensor = torch.vstack([iH_img_tensor, static_img_tensor]).unsqueeze(0) # we only use one camera
-
-            all_actions_tensor = self.policy(norm_q_pos_tensor, img_tensor)
+            norm_img_tensor = torch.vstack([iH_img_tensor, static_img_tensor]).unsqueeze(0) # we only use one camera
+            all_actions_tensor = self.policy(norm_q_pos_tensor, norm_img_tensor)
             all_actions_array = all_actions_tensor.cpu().detach().numpy()
 
             if self.policy_cfg['temporal_agg']:
@@ -120,12 +122,10 @@ class ACT_Controller(Arm_Controller):
                 actions_for_curr_step = all_time_actions[:, t]
                 actions_populated = np.all(actions_for_curr_step != 0, axis=1)
                 actions_for_curr_step = actions_for_curr_step[actions_populated]
-                k = 0.01
                 exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                 exp_weights = exp_weights / exp_weights.sum()
                 exp_weights = exp_weights.reshape(-1, 1)
                 raw_action = np.sum(actions_for_curr_step * exp_weights, axis=0, keepdims=True)
-
             else:
                 raw_action = all_actions_array[:, t % query_frequency]
 
@@ -133,20 +133,22 @@ class ACT_Controller(Arm_Controller):
             action = action.squeeze()
             d_q_pos = action[:7]
 
-            clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time)
+            clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time, max_q_vel=0.1)
             joint_goal = get_BB_Joint_goal(kp=kp, kv=kv, d_q=clip_d_q_pos, completion_time=completion_time)
             self.joint_goal_pub.publish(joint_goal)
             rospy.sleep(completion_time)
+            t += 1
 
             if action[-1] <= 0.03 and not self.gripper_ctl.is_grasping():
                 # we assume the robot already grasps the object
                 pass
                 # self.grasping()
 
+
         self.ctrl_logger.critical("Done")
 
-    def clip_joint_velocity(self, curt_q, d_q, completion_time):
-        max_diff_q = np.array([0.1*completion_time for i in range(7)])  # read from franka specifications
+    def clip_joint_velocity(self, curt_q, d_q, completion_time, max_q_vel=0.2):
+        max_diff_q = np.array([max_q_vel*completion_time for i in range(7)])  # read from franka specifications
         diff_q = d_q - curt_q
         clip_diff_q = np.clip(diff_q, -max_diff_q, max_diff_q)
         clip_d_q = curt_q + clip_diff_q
@@ -164,9 +166,7 @@ if __name__ == "__main__":
     config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
 
     act_controller = ACT_Controller(config=config, gripper=True)
-
     ckpt_dir = act_project_dir + config['train_config']['checkpoint_dir']
     ckpt_path = ckpt_dir + config['train_config']['eval_ckpt_name'] 
-    
     act_controller.load_model(ckpt_dir, ckpt_path)
     act_controller.execution()

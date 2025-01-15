@@ -120,8 +120,8 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='puzzle')
-    parser.add_argument('--config', type=str, default='train_config_act_puzzle')
+    parser.add_argument('--task', type=str, default='puzzle_diffusion')
+    parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config
     act_project_dir = os.getenv("ACT_PROJECT_DIR")

@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # Given a dataset dir, iterate all episode in the dir and align the data shape
     dataset_name = 'insertion_puzzle'
     dataset_dir = DATA_DIR + dataset_name + '/'
-    processed_dataset_dir = DATA_DIR + dataset_name + "_aligned" + "/"
+    processed_dataset_dir = DATA_DIR + dataset_name + "_diff_aligned" + "/"
 
     all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     max_episode_len = int(np.max(shapes))
     logger.info(f"Mean episode length: {max_episode_len}")
     input("Press Enter to start aligning...")
-    max_episode_len = 150  # the episode length should be able to divided by action_horizon.....
+    max_episode_len = 160  # the episode length should be able to divided by action_horizon.....
 
     for name in aligned_data.keys():
         episode_len = aligned_data[name]['qpos'].shape[0]

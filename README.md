@@ -59,6 +59,8 @@ python3 act_panda/evaluation/act_controller.py
 ### Trouble Shooting
 * ImportError: cannot import name 'PreTrainedModel' from 'transformers' (unknown location)
   * Check the version of transformers: pip install transformer==
+* Cannot train Diffusion policy due to the error in feature shaping matching
+  * Check the episode length, this should be dividable by action dim e.g. 160, 320
  
 
 # Imitation Learning for 250$ robot arm
