@@ -37,8 +37,8 @@ if __name__ == "__main__":
     init_q = np.array([0.00440534, -0.157901, 0.199459, -2.00603, -0.0158633, 1.89083, 0.987942])
     arm_ctrl.move_to_joint_position(init_q, completion_time=5)
 
-    poses_1 = generate_uniform_distributed_demo_poses(num_poses=12, radius=0.05, height=0.2, start_deg=0, end_deg=np.deg2rad(180))
-    poses_2 = generate_uniform_distributed_demo_poses(num_poses=18, radius=0.1, height=0.3, start_deg=0, end_deg=np.deg2rad(180))
+    poses_1 = generate_uniform_distributed_demo_poses(num_poses=12, radius=0.05, height=0.25, start_deg=0, end_deg=np.deg2rad(180))
+    poses_2 = generate_uniform_distributed_demo_poses(num_poses=18, radius=0.1, height=0.35, start_deg=0, end_deg=np.deg2rad(180))
     # poses_3 = generate_uniform_distributed_demo_poses(num_poses=13, radius=0.10, height=0.35)
 
     poses = init_base_ht_ee @ np.vstack([poses_1, poses_2])
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     plot_camera_poses(center_point, poses)
 
     # this is used to prevent stop recording in the middle
-    start_idx = 10
+    start_idx = 19
 
     for i in range(start_idx, len(poses)):
         pose = poses[i]

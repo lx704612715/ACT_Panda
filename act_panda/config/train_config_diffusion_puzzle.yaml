@@ -1,33 +1,36 @@
 task_config:
-  dataset_dir: &dataset_dir '/data/insertion_puzzle_diff_aligned/'
+  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
   episode_len: &episode_len 160
+  cam_width: &cam_width 320
+  cam_height: &cam_height 240
   state_dim: &state_dim 8
   action_dim: &action_dim 8
-  cam_width: &cam_width 640
-  cam_height: &cam_height 480
-  camera_names: &camera_names [ 'front', 'static']
+  camera_names: &camera_names ['front', 'static']
 
 policy_config:
   lr: 0.00001
   policy_class: 'Diffusion'
   camera_names: *camera_names
-  num_queries: 30
+  cam_width: *cam_width
+  cam_height: *cam_height
   vq: False
   ema_power: 0.75
   observation_horizon: 1
-  action_horizon: 8
-  prediction_horizon: 30
-  num_inference_timesteps: 10
+  action_horizon: 12 # episode length should be divided by action horizon
+  num_queries: &chunk_size 12
+  prediction_horizon: *chunk_size
+  num_inference_timesteps: 12
   state_dim: *state_dim
   action_dim: *action_dim
 
 train_config:
   seed: 42
-  num_epochs: 20000
+  num_epochs: 2000000
   batch_size_val: 8
   batch_size_train: 8
-  eval_ckpt_name: 'best_ckpt_epoch_31.ckpt'
-  checkpoint_dir: '/checkpoints/diffusion_11-30_06-28/'  # relative to project folder
+  checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
+  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puzzle_diffusion_16-31_01-16/eval/'
+  eval_ckpt_name: 'best_ckpt_epoch_6.ckpt'
   wandb: True
 
 

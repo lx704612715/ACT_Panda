@@ -1,8 +1,10 @@
 import torch
+import math
 import numpy as np
 import torch.nn as nn
 from torch.nn import functional as F
 import torchvision.transforms as transforms
+from torchvision.transforms import ToTensor, Resize, Normalize
 from detr.main import build_ACT_model_and_optimizer, build_CNNMLP_model_and_optimizer
 # import IPython
 # e = IPython.embed
@@ -57,7 +59,8 @@ class CNNMLPPolicy(nn.Module):
         model, optimizer = build_CNNMLP_model_and_optimizer(args_override)
         self.model = model # decoder
         self.optimizer = optimizer
-        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None # TODO
@@ -99,7 +102,6 @@ class DiffusionPolicy(nn.Module):
         super().__init__()
 
         self.camera_names = args_override['camera_names']
-
         self.observation_horizon = args_override['observation_horizon']  ### TODO TODO TODO DO THIS
         self.action_horizon = args_override['action_horizon']  # apply chunk size
         self.prediction_horizon = args_override['prediction_horizon']  # chunk size
@@ -109,15 +111,22 @@ class DiffusionPolicy(nn.Module):
         self.weight_decay = 0
         self.num_kp = 32
         self.feature_dimension = 64
-        self.ac_dim = args_override['action_dim']  # 14 + 2
+        self.ac_dim = args_override['action_dim']  # 8
         self.obs_dim = self.feature_dimension * len(self.camera_names) + self.ac_dim  # camera features and proprio
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.camera_w = args_override["cam_width"]
+        self.camera_h = args_override["cam_height"]
 
         backbones = []
         pools = []
         linears = []
         for _ in self.camera_names:
             backbones.append(ResNet18Conv(**{'input_channel': 3, 'pretrained': False, 'input_coord_conv': False}))
-            pools.append(SpatialSoftmax(**{'input_shape': [512, 8, 10], 'num_kp': self.num_kp, 'temperature': 1.0,
+            # output shape of backbones are (w/32, h/32). For size of 240, 320, the size is 8, 10
+            # for size of 480, 640, the input shape should be 15, 20
+            pools.append(SpatialSoftmax(**{'input_shape': [512, int(math.ceil(self.camera_h/32.)),
+                                                           int(math.ceil(self.camera_w/32.))],
+                                           'num_kp': self.num_kp, 'temperature': 1.0,
                                            'learnable_temperature': False, 'noise_std': 0.0}))
             linears.append(torch.nn.Linear(int(np.prod([self.num_kp, 2])), self.feature_dimension))
         backbones = nn.ModuleList(backbones)
@@ -168,9 +177,7 @@ class DiffusionPolicy(nn.Module):
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         B = qpos.shape[0]
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-        image = normalize(image)
+        image = self.normalize(image)
         if actions is not None:  # training time
             nets = self.nets
             all_features = []

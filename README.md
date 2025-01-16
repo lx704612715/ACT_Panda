@@ -23,6 +23,7 @@ pip install -e .
 ```bash
 ssh -X robotics@controller
 roslaunch panda_hybrid_automaton_manager panda_ha.launch
+roslaunch panda_hybrid_automaton_manager rs_multiple_devices.launch
 # record a single episode
 python3 act_panda/demonstration/record_episodes.py --task latch
 # or record several episodes with a uniform distributed starting poses
@@ -56,11 +57,14 @@ Modify the checkpoint path in the config file in the /config/eva_config_{}.yaml
 python3 act_panda/evaluation/act_controller.py
 ```
 
-### Trouble Shooting
+### Troubleshooting
 * ImportError: cannot import name 'PreTrainedModel' from 'transformers' (unknown location)
   * Check the version of transformers: pip install transformer==
 * Cannot train Diffusion policy due to the error in feature shaping matching
   * Check the episode length, this should be dividable by action dim e.g. 160, 320
+* Problem in upsample steps of diffusion policy using self.down_modules
+  * Since we sample 3 times in the diffusion policy, we should check the size at each upsample step is dividable by 3!
+  * So check the size of x and h at each denoising step
  
 
 # Imitation Learning for 250$ robot arm

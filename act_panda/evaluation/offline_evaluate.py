@@ -17,23 +17,10 @@ from contact_lfd.LfDusingEC.vis.base_plot_funcs import plot_multi_lines, generat
 
 
 if __name__ == "__main__":
-    # load model and statistics
     act_project_dir = os.getenv("ACT_PROJECT_DIR")
-    ckpt_dir = act_project_dir + "/checkpoints/insertion_puzzle/puzzle_17-52_01-14/eval/"
-    ckpt_path = ckpt_dir + "97875.ckpt"
-    # Load normalization stats
-    stats_path = ckpt_dir + 'dataset_stats.pkl'
-    stats = pickle.load(open(stats_path, 'rb'))
-
-    # load dataset
-    dataset_dir = act_project_dir + '/data/insertion_puzzle_aligned/'
-    output_vis_dir = act_project_dir + '/data/insertion_puzzle_aligned_eval/'
-    os.makedirs(output_vis_dir, exist_ok=True)
-    all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
-
     # load dataset
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='train_config_act_puzzle')
+    parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config
     config_path = act_project_dir + '/act_panda/config/' + config_name + '.yaml'
@@ -42,6 +29,19 @@ if __name__ == "__main__":
     task_cfg = config['task_config']
     train_cfg = config['train_config']
     policy_cfg = config['policy_config']
+    
+    ckpt_dir = act_project_dir + train_cfg['eval_ckpt_dir']
+    ckpt_path = ckpt_dir + train_cfg['eval_ckpt_name']
+    dataset_dir = act_project_dir + task_cfg['dataset_dir']
+
+    output_vis_dir = act_project_dir + '/data/insertion_puzzle_diffusion_eval/'
+    # load dataset
+    os.makedirs(output_vis_dir, exist_ok=True)
+    all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
+
+    # Load normalization stats
+    stats_path = ckpt_dir + 'dataset_stats.pkl'
+    stats = pickle.load(open(stats_path, 'rb'))
 
     # load model
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
