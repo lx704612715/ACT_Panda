@@ -8,29 +8,30 @@ task_config:
   camera_names: &camera_names ['front', 'static']
 
 policy_config:
-  lr: 0.00001
+  lr: 0.0001 # origin was 0.00001
   policy_class: 'Diffusion'
   camera_names: *camera_names
   cam_width: *cam_width
   cam_height: *cam_height
   vq: False
+  use_ema: True
   ema_power: 0.75
   observation_horizon: 1
-  action_horizon: 12 # episode length should be divided by action horizon
-  num_queries: &chunk_size 12
+  action_horizon: 8 # episode length should be divided by action horizon
+  num_queries: &chunk_size 36
   prediction_horizon: *chunk_size
-  num_inference_timesteps: 12
+  num_inference_timesteps: 36
   state_dim: *state_dim
   action_dim: *action_dim
 
 train_config:
   seed: 42
-  num_epochs: 2000000
+  num_epochs: 1000000
   batch_size_val: 8
-  batch_size_train: 8
+  batch_size_train: 2
   checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
-  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puzzle_diffusion_16-31_01-16/eval/'
-  eval_ckpt_name: 'best_ckpt_epoch_6.ckpt'
+  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_dif_fixed_10-28_01-20/eval/'
+  eval_ckpt_name: 'best_ckpt_epoch_27480.ckpt'
   wandb: True
 
 

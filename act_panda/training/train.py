@@ -79,6 +79,9 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
                 # Save the new checkpoint file
                 ckpt_path = os.path.join(checkpoint_dir, f'best_ckpt_epoch_{epoch}.ckpt')
+                if policy_config['policy_class'] == "Diffusion":
+                    if policy_config['use_ema']:
+                        policy.ema.copy_to(policy.nets.parameters())
                 torch.save(policy.state_dict(), ckpt_path)
             
         summary_string = ''
@@ -120,7 +123,7 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='puzzle_diffusion')
+    parser.add_argument('--task', type=str, default='puz_dif_fixed')
     parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config

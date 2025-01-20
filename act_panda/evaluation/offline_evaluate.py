@@ -55,7 +55,7 @@ if __name__ == "__main__":
     num_episodes = len(os.listdir(data_dir))
 
     # hyperparameter
-    k = 0.01
+    k = 0.5
     num_queries = policy_cfg['num_queries']
     total_diff = []
 

@@ -59,8 +59,7 @@ class CNNMLPPolicy(nn.Module):
         model, optimizer = build_CNNMLP_model_and_optimizer(args_override)
         self.model = model # decoder
         self.optimizer = optimizer
-        self.        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],  std=[0.229, 0.224, 0.225])
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
         env_state = None # TODO
@@ -106,6 +105,7 @@ class DiffusionPolicy(nn.Module):
         self.action_horizon = args_override['action_horizon']  # apply chunk size
         self.prediction_horizon = args_override['prediction_horizon']  # chunk size
         self.num_inference_timesteps = args_override['num_inference_timesteps']
+        self.use_ema = args_override['use_ema']
         self.ema_power = args_override['ema_power']
         self.lr = args_override['lr']
         self.weight_decay = 0
@@ -150,9 +150,8 @@ class DiffusionPolicy(nn.Module):
         })
 
         nets = nets.float().cuda()
-        ENABLE_EMA = True
-        if ENABLE_EMA:
-            ema = EMAModel(model=nets, power=self.ema_power)
+        if self.use_ema:
+            ema = EMAModel(parameters=nets.parameters(), power=self.ema_power)
         else:
             ema = None
         self.nets = nets
@@ -216,7 +215,7 @@ class DiffusionPolicy(nn.Module):
             loss_dict['loss'] = loss
 
             if self.training and self.ema is not None:
-                self.ema.step(nets)
+                self.ema.step(nets.parameters())
             return loss_dict
         else:  # inference time
             To = self.observation_horizon
@@ -225,8 +224,8 @@ class DiffusionPolicy(nn.Module):
             action_dim = self.ac_dim
 
             nets = self.nets
-            if self.ema is not None:
-                nets = self.ema.averaged_model
+            # if self.ema is not None and self.use_ema:
+            #     nets = self.ema.averaged_model
 
             all_features = []
             for cam_id in range(len(self.camera_names)):
