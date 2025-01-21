@@ -1,6 +1,3 @@
-import numpy as np
-
-from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG  # must import first
 # standard library
 import tqdm
 import yaml
@@ -8,7 +5,6 @@ import pickle
 import argparse
 import torchvision.transforms as T
 from loguru import logger
-import matplotlib.pyplot as plt
 
 # Deep Learning Scripts
 from act_panda.utils.utils import *

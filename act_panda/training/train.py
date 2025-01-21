@@ -8,9 +8,6 @@ import matplotlib.pyplot as plt
 act_project_dir = os.getenv("ACT_PROJECT_DIR")
 sys.path.append(act_project_dir)
 
-from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
-# act_project_dir = os.getenv("ACT_PROJECT_DIR") + '/act_panda'
-
 from loguru import logger
 from copy import deepcopy
 from datetime import datetime

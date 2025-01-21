@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG # must import first
 import copy
 import os
 import h5py
@@ -22,7 +21,7 @@ from cv_bridge import CvBridge
 
 
 class ImgTrajectoryRecorder(TrajectoryRecorder):
-    def __init__(self,  arm_ctrl: Arm_Controller, data_path, record=True, demo_idx=0, min_trans=0.005, min_rot=0.1, config=PANDA_TASK_CONFIG):
+    def __init__(self,  arm_ctrl: Arm_Controller, data_path, record=True, demo_idx=0, min_trans=0.005, min_rot=0.1, config=None):
         super().__init__(arm_ctrl, data_path, record, demo_idx, min_trans, min_rot)
         self.curt_iH_rgb_img = None
         self.curt_static_rgb_img = None

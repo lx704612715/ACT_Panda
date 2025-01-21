@@ -1,4 +1,3 @@
-from act_panda.config.config import PANDA_POLICY_CONFIG, PANDA_TASK_CONFIG, PANDA_TRAIN_CONFIG  # must import first
 import os
 import h5py
 import numpy as np
