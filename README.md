@@ -57,6 +57,10 @@ Modify the checkpoint path in the config file in the /config/eva_config_{}.yaml
 python3 act_panda/evaluation/act_controller.py
 ```
 
+### Useful Resources of Implementation
+* https://github.com/shaoanlu/diffusion_policy_quadrotor
+* https://github.com/ewmstaley/diffusion_policies
+
 ### Troubleshooting
 * ImportError: cannot import name 'PreTrainedModel' from 'transformers' (unknown location)
   * Check the version of transformers: pip install transformer==
