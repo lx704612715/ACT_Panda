@@ -20,6 +20,7 @@ if __name__ == "__main__":
     act_project_dir = os.getenv("ACT_PROJECT_DIR")
     # load dataset
     parser = argparse.ArgumentParser()
+    # parser.add_argument('--config', type=str, default='train_config_act_puzzle')
     parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     ckpt_path = ckpt_dir + train_cfg['eval_ckpt_name']
     dataset_dir = act_project_dir + task_cfg['dataset_dir']
 
-    output_vis_dir = act_project_dir + '/data/insertion_puzzle_diffusion_eval/'
+    output_vis_dir = act_project_dir + '/data/' + config_name + "_eval/"
     # load dataset
     os.makedirs(output_vis_dir, exist_ok=True)
     all_episodes_names = [name for name in os.listdir(dataset_dir) if os.path.isfile(os.path.join(dataset_dir, name))]
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     num_episodes = len(os.listdir(data_dir))
 
     # hyperparameter
-    k = 0.5
+    k = 0.01
     num_queries = policy_cfg['num_queries']
     total_diff = []
 
@@ -85,15 +86,17 @@ if __name__ == "__main__":
             all_actions_array = all_actions_tensor.cpu().detach().numpy()
 
             # perform temporal aggregation (Trunking)
-            all_time_actions[[i], i:i+num_queries] = all_actions_array
-            actions_for_curr_step = all_time_actions[:, i]
-            actions_populated = np.all(actions_for_curr_step != 0, axis=1)
-            actions_for_curr_step = actions_for_curr_step[actions_populated]
-            
-            exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
-            exp_weights = exp_weights / exp_weights.sum()
-            exp_weights = exp_weights.reshape(-1, 1)
-            raw_action = np.sum(actions_for_curr_step * exp_weights, axis=0, keepdims=True)
+            if policy_cfg["policy_class"] == "ACT":
+                all_time_actions[[i], i:i+num_queries] = all_actions_array
+                actions_for_curr_step = all_time_actions[:, i]
+                actions_populated = np.all(actions_for_curr_step != 0, axis=1)
+                actions_for_curr_step = actions_for_curr_step[actions_populated]
+                exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
+                exp_weights = exp_weights / exp_weights.sum()
+                exp_weights = exp_weights.reshape(-1, 1)
+                raw_action = np.sum(actions_for_curr_step * exp_weights, axis=0, keepdims=True)
+            else:
+                raw_action = all_actions_array[0][0]
 
             # denormalize actions
             hat_action = raw_action * stats['action_std'] + stats['action_mean']

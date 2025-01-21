@@ -1,5 +1,6 @@
 task_config:
-  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
+#  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
+  dataset_dir: &dataset_dir '/data/puzzle_diff_debug/'
   episode_len: &episode_len 160
   cam_width: &cam_width 320
   cam_height: &cam_height 240
@@ -18,20 +19,24 @@ policy_config:
   ema_power: 0.75
   observation_horizon: 1
   action_horizon: 8 # episode length should be divided by action horizon
-  num_queries: &chunk_size 36
+  num_queries: &chunk_size 12
   prediction_horizon: *chunk_size
-  num_inference_timesteps: 36
   state_dim: *state_dim
   action_dim: *action_dim
+  # new parameters from diffusion policy paper
+  num_train_timesteps: 100
+  weight_decay: 0.000001
+  num_inference_timesteps: 100  # in papers it is 10
 
 train_config:
   seed: 42
   num_epochs: 1000000
   batch_size_val: 8
-  batch_size_train: 2
+  batch_size_train: 16
+  best_val_loss: "action_loss"  # l1_loss or l2_loss
   checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
-  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_dif_fixed_10-28_01-20/eval/'
-  eval_ckpt_name: 'best_ckpt_epoch_27480.ckpt'
+  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_dif_fixed_17-35_01-20/eval/'
+  eval_ckpt_name: 'best_ckpt_epoch_4644.ckpt'
   wandb: True
 
 

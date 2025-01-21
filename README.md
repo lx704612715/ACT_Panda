@@ -60,6 +60,8 @@ python3 act_panda/evaluation/act_controller.py
 ### Troubleshooting
 * ImportError: cannot import name 'PreTrainedModel' from 'transformers' (unknown location)
   * Check the version of transformers: pip install transformer==
+  * diffusers == 0.27.2, torch==2.3.1, transformers==4.42.3, numexpr==2.8.3, numpy==1.26.4
+  * If pacakges in conda conflicts with pip, remove such packages in dist-packages 
 * Cannot train Diffusion policy due to the error in feature shaping matching
   * Check the episode length, this should be dividable by action dim e.g. 160, 320
 * Problem in upsample steps of diffusion policy using self.down_modules

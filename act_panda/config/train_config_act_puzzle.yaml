@@ -1,6 +1,6 @@
 task_config:
   dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
-  episode_len: &episode_len 150
+  episode_len: &episode_len 160
   state_dim: &state_dim 8
   action_dim: &action_dim 8
   cam_width: &cam_width 320
@@ -29,8 +29,10 @@ train_config:
   num_epochs: 500000
   batch_size_val: 8
   batch_size_train: 8
-  eval_ckpt_name: 'policy_epoch_90000_seed_42.ckpt'
-  checkpoint_dir: '/checkpoints/insertion_puzzle/'
+  best_val_loss: "loss"  # l1_loss or l2_loss
+  checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
+  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_act_00-32_01-18/eval/'
+  eval_ckpt_name: 'best_ckpt_epoch_89140.ckpt'
   wandb: True
 
 

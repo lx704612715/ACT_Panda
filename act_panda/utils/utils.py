@@ -72,8 +72,8 @@ class EpisodicDataset(torch.utils.data.Dataset):
 
         # normalize image and change dtype to float
         image_data = image_data / 255.0
-        action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
-        qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
+        action_data = (action_data - self.norm_stats["action_channel_mean"]) / self.norm_stats["action_channel_std"]
+        qpos_data = (qpos_data - self.norm_stats["qpos_channel_mean"]) / self.norm_stats["qpos_channel_std"]
 
         return image_data, qpos_data, action_data, is_pad
 
@@ -102,10 +102,23 @@ def get_norm_stats(dataset_dir, num_episodes):
     qpos_mean = all_qpos_data.mean(dim=[0, 1], keepdim=True)
     qpos_std = all_qpos_data.std(dim=[0, 1], keepdim=True)
     qpos_std = torch.clip(qpos_std, 1e-2, np.inf) # clipping
+    
+    # normalize each channel
+    action_channel_mean = all_action_data.mean(dim=[0], keepdim=True)
+    action_channel_std = all_action_data.std(dim=[0], keepdim=True)
+    action_channel_std = torch.clip(action_channel_std, 1e-2, np.inf) # clipping
+    qpos_channel_mean = all_qpos_data.mean(dim=[0], keepdim=True)
+    qpos_channel_std = all_qpos_data.std(dim=[0], keepdim=True)
+    qpos_channel_std = torch.clip(qpos_channel_std, 1e-2, np.inf) # clipping
+
 
     stats = {"action_mean": action_mean.numpy().squeeze(), "action_std": action_std.numpy().squeeze(),
              "qpos_mean": qpos_mean.numpy().squeeze(), "qpos_std": qpos_std.numpy().squeeze(),
-             "example_qpos": qpos}
+             "example_qpos": qpos,
+             "action_channel_mean": action_channel_mean.numpy().squeeze(),
+             "action_channel_std": action_channel_std.numpy().squeeze(),
+             "qpos_channel_mean": qpos_channel_mean.numpy().squeeze(),
+             "qpos_channel_std": qpos_channel_std.numpy().squeeze()}
 
     return stats
 
@@ -169,10 +182,10 @@ def load_hdf5(dataset_path):
     return qpos, qvel, action, image_dict
 
 
-def forward_pass(data, policy):
+def forward_pass(data, policy, validation=False):
     image_data, qpos_data, action_data, is_pad = data
     image_data, qpos_data, action_data, is_pad = image_data.to(device), qpos_data.to(device), action_data.to(device), is_pad.to(device)
-    return policy(qpos_data, image_data, action_data, is_pad)  # TODO remove Non
+    return policy(qpos_data, image_data, action_data, is_pad, validation=validation)  # TODO remove Non
 
 
 def sample_box_pose():

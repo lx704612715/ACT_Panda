@@ -17,6 +17,21 @@ from collections import OrderedDict
 from robomimic.models.base_nets import ResNet18Conv, SpatialSoftmax
 from robomimic.algo.diffusion_policy import replace_bn_with_gn, ConditionalUnet1D
 
+def kl_divergence(mu, logvar):
+    batch_size = mu.size(0)
+    assert batch_size != 0
+    if mu.data.ndimension() == 4:
+        mu = mu.view(mu.size(0), mu.size(1))
+    if logvar.data.ndimension() == 4:
+        logvar = logvar.view(logvar.size(0), logvar.size(1))
+
+    klds = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
+    total_kld = klds.sum(1).mean(0, True)
+    dimension_wise_kld = klds.mean(0)
+    mean_kld = klds.mean(1).mean(0, True)
+
+    return total_kld, dimension_wise_kld, mean_kld
+
 
 class ACTPolicy(nn.Module):
     def __init__(self, args_override):
@@ -28,7 +43,7 @@ class ACTPolicy(nn.Module):
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         print(f'KL Weight {self.kl_weight}')
 
-    def __call__(self, qpos, image, actions=None, is_pad=None):
+    def __call__(self, qpos, image, actions=None, is_pad=None, validation=False):
         env_state = None
 
         image = self.normalize(image)
@@ -61,7 +76,7 @@ class CNNMLPPolicy(nn.Module):
         self.optimizer = optimizer
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],  std=[0.229, 0.224, 0.225])
 
-    def __call__(self, qpos, image, actions=None, is_pad=None):
+    def __call__(self, qpos, image, actions=None, is_pad=None, validation=False):
         env_state = None # TODO
 
         image = self.normalize(image)
@@ -80,21 +95,6 @@ class CNNMLPPolicy(nn.Module):
     def configure_optimizers(self):
         return self.optimizer
 
-def kl_divergence(mu, logvar):
-    batch_size = mu.size(0)
-    assert batch_size != 0
-    if mu.data.ndimension() == 4:
-        mu = mu.view(mu.size(0), mu.size(1))
-    if logvar.data.ndimension() == 4:
-        logvar = logvar.view(logvar.size(0), logvar.size(1))
-
-    klds = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
-    total_kld = klds.sum(1).mean(0, True)
-    dimension_wise_kld = klds.mean(0)
-    mean_kld = klds.mean(1).mean(0, True)
-
-    return total_kld, dimension_wise_kld, mean_kld
-
 
 class DiffusionPolicy(nn.Module):
     def __init__(self, args_override):
@@ -108,7 +108,7 @@ class DiffusionPolicy(nn.Module):
         self.use_ema = args_override['use_ema']
         self.ema_power = args_override['ema_power']
         self.lr = args_override['lr']
-        self.weight_decay = 0
+        self.weight_decay = args_override["weight_decay"]
         self.num_kp = 32
         self.feature_dimension = 64
         self.ac_dim = args_override['action_dim']  # 8
@@ -159,7 +159,7 @@ class DiffusionPolicy(nn.Module):
 
         # setup noise scheduler
         self.noise_scheduler = DDIMScheduler(
-            num_train_timesteps=50,
+            num_train_timesteps=args_override["num_train_timesteps"],
             beta_schedule='squaredcos_cap_v2',
             clip_sample=True,
             set_alpha_to_one=True,
@@ -174,10 +174,13 @@ class DiffusionPolicy(nn.Module):
         optimizer = torch.optim.AdamW(self.nets.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def __call__(self, qpos, image, actions=None, is_pad=None):
+    def __call__(self, qpos, image, actions=None, is_pad=None, validation=False):
         B = qpos.shape[0]
         image = self.normalize(image)
         if actions is not None:  # training time
+            actions = actions[:, :self.prediction_horizon]
+            is_pad = is_pad[:, :self.prediction_horizon]
+
             nets = self.nets
             all_features = []
             for cam_id in range(len(self.camera_names)):
@@ -210,23 +213,34 @@ class DiffusionPolicy(nn.Module):
             all_l2 = F.mse_loss(noise_pred, noise, reduction='none')
             loss = (all_l2 * ~is_pad.unsqueeze(-1)).mean()
 
-            loss_dict = {}
-            loss_dict['l2_loss'] = loss
+            loss_dict = dict()
+            loss_dict['noise_loss'] = loss
             loss_dict['loss'] = loss
+
+            if validation:
+                naction = self.inference(image, qpos, all_features=all_features)
+                all_l1 = F.l1_loss(actions, naction, reduction='none')
+                l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
+                loss_dict['action_loss'] = l1
 
             if self.training and self.ema is not None:
                 self.ema.step(nets.parameters())
             return loss_dict
         else:  # inference time
-            To = self.observation_horizon
-            Ta = self.action_horizon
-            Tp = self.prediction_horizon
-            action_dim = self.ac_dim
+            naction = self.inference(image, qpos)
+            return naction
 
-            nets = self.nets
-            # if self.ema is not None and self.use_ema:
-            #     nets = self.ema.averaged_model
 
+    def inference(self, image, qpos, all_features=None):
+        B = qpos.shape[0]
+        Tp = self.prediction_horizon
+        action_dim = self.ac_dim
+
+        nets = self.nets
+        # if self.ema is not None and self.use_ema:
+        #     nets = self.ema.averaged_model
+
+        if all_features is None:
             all_features = []
             for cam_id in range(len(self.camera_names)):
                 cam_image = image[:, cam_id]
@@ -236,32 +250,30 @@ class DiffusionPolicy(nn.Module):
                 out_features = nets['policy']['linears'][cam_id](pool_features)
                 all_features.append(out_features)
 
-            obs_cond = torch.cat(all_features + [qpos], dim=1)
+        obs_cond = torch.cat(all_features + [qpos], dim=1)
 
-            # initialize action from Guassian noise
-            noisy_action = torch.randn(
-                (B, Tp, action_dim), device=obs_cond.device)
-            naction = noisy_action
+        # initialize action from Gaussian noise
+        noisy_action = torch.randn((B, Tp, action_dim), device=obs_cond.device)
+        naction = noisy_action
 
-            # init scheduler
-            self.noise_scheduler.set_timesteps(self.num_inference_timesteps)
+        # init scheduler
+        self.noise_scheduler.set_timesteps(self.num_inference_timesteps)
 
-            for k in self.noise_scheduler.timesteps:
-                # predict noise
-                noise_pred = nets['policy']['noise_pred_net'](
-                    sample=naction,
-                    timestep=k,
-                    global_cond=obs_cond
-                )
+        for k in self.noise_scheduler.timesteps:
+            # predict noise
+            noise_pred = nets['policy']['noise_pred_net'](
+                sample=naction,
+                timestep=k,
+                global_cond=obs_cond
+            )
 
-                # inverse diffusion step (remove noise)
-                naction = self.noise_scheduler.step(
-                    model_output=noise_pred,
-                    timestep=k,
-                    sample=naction
-                ).prev_sample
-
-            return naction
+            # inverse diffusion step (remove noise)
+            naction = self.noise_scheduler.step(
+                model_output=noise_pred,
+                timestep=k,
+                sample=naction
+            ).prev_sample
+        return naction
 
     def serialize(self):
         return {

@@ -3,8 +3,8 @@ task_config:
   episode_len: &episode_len 100
   state_dim: &state_dim 8
   action_dim: &action_dim 8
-  cam_width: &cam_width 640
-  cam_height: &cam_height 480
+  cam_width: &cam_width 320
+  cam_height: &cam_height 240
   camera_names: &camera_names [ 'front' ]
 
 policy_config:
@@ -26,6 +26,7 @@ train_config:
   num_epochs: 20000
   batch_size_val: 8
   batch_size_train: 8
+  best_val_loss: "loss"  # l1_loss or l2_loss
   eval_ckpt_name: 'best_ckpt_epoch_31.ckpt'
   checkpoint_dir: '/checkpoints/diffusion_11-30_06-28/'  # relative to project folder
   wandb: True

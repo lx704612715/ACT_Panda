@@ -54,41 +54,40 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
     for epoch in tqdm(range(train_cfg['num_epochs']), file=sys.stdout):
         # validation
-        with torch.inference_mode():
-            policy.eval()
-            epoch_dicts = []
-            for batch_idx, data in enumerate(val_dataloader):
-                forward_dict = forward_pass(data, policy)
-                epoch_dicts.append(forward_dict)
-            val_epoch_summary = compute_dict_mean(epoch_dicts)
-            validation_history.append(val_epoch_summary)
+        if epoch % 5 == 0:
+            with torch.inference_mode():
+                policy.eval()
+                epoch_dicts = []
+                for batch_idx, data in enumerate(val_dataloader):
+                    forward_dict = forward_pass(data, policy, validation=True)
+                    epoch_dicts.append(forward_dict)
+                val_epoch_summary = compute_dict_mean(epoch_dicts)
+                validation_history.append(val_epoch_summary)
 
-            epoch_val_loss = val_epoch_summary['loss']
-            
-            # Update best checkpoints list and manage files
-            if len(best_checkpoints) < 5 or epoch_val_loss < max(best_checkpoints, key=lambda x: x[1])[1]:
-                if len(best_checkpoints) == 5:
-                    # Remove the worst checkpoint's file
-                    worst_checkpoint = max(best_checkpoints, key=lambda x: x[1])
-                    os.remove(os.path.join(checkpoint_dir, f'best_ckpt_epoch_{worst_checkpoint[0]}.ckpt'))
-                    best_checkpoints.remove(worst_checkpoint)
-                
-                # Add the new best checkpoint
-                best_checkpoints.append((epoch, epoch_val_loss, deepcopy(policy.state_dict())))
-                best_checkpoints.sort(key=lambda x: x[1])  # Sort checkpoints by validation loss
+                epoch_val_loss = val_epoch_summary[train_cfg['best_val_loss']]
 
-                # Save the new checkpoint file
-                ckpt_path = os.path.join(checkpoint_dir, f'best_ckpt_epoch_{epoch}.ckpt')
-                if policy_config['policy_class'] == "Diffusion":
-                    if policy_config['use_ema']:
-                        policy.ema.copy_to(policy.nets.parameters())
-                torch.save(policy.state_dict(), ckpt_path)
-            
-        summary_string = ''
-        for k, v in val_epoch_summary.items():
-            summary_string += f'{k}: {v.item():.3f} '
+                # Update best checkpoints list and manage files
+                if len(best_checkpoints) < 5 or epoch_val_loss < max(best_checkpoints, key=lambda x: x[1])[1]:
+                    if len(best_checkpoints) == 5:
+                        # Remove the worst checkpoint's file
+                        worst_checkpoint = max(best_checkpoints, key=lambda x: x[1])
+                        os.remove(os.path.join(checkpoint_dir, f'best_ckpt_epoch_{worst_checkpoint[0]}.ckpt'))
+                        best_checkpoints.remove(worst_checkpoint)
 
-        tqdm.write(f'Validation Summary - Epoch {epoch}: Loss: {val_epoch_summary["loss"]:.4f}')
+                    # Add the new best checkpoint
+                    best_checkpoints.append((epoch, epoch_val_loss, deepcopy(policy.state_dict())))
+                    best_checkpoints.sort(key=lambda x: x[1])  # Sort checkpoints by validation loss
+
+                    # Save the new checkpoint file
+                    ckpt_path = os.path.join(checkpoint_dir, f'best_ckpt_epoch_{epoch}.ckpt')
+                    if policy_config['policy_class'] == "Diffusion":
+                        if policy_config['use_ema']:
+                            policy.ema.copy_to(policy.nets.parameters())
+                    torch.save(policy.state_dict(), ckpt_path)
+            summary_string = ''
+            for k, v in val_epoch_summary.items():
+                summary_string += f'{k}: {v.item():.3f} '
+            tqdm.write(f'Validation Summary - Epoch {epoch}: Loss Type: {train_cfg["best_val_loss"]}: Loss: {val_epoch_summary["loss"]:.4f}')
 
         # training
         policy.train()
@@ -123,7 +122,7 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='puz_dif_fixed')
+    parser.add_argument('--task', type=str, default='puz_diff_pad_bugs')
     parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config
