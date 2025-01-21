@@ -48,7 +48,7 @@ def generate_eval_trajectories():
 if __name__ == "__main__":
     rospy.init_node('act_controller')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='eva_config_act')
+    parser.add_argument('--config', type=str, default='train_config_act_puzzle')
     parser.add_argument('--record', default="1")
     args = parser.parse_args()
     config_name = args.config
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
 
     act_controller = ACT_Controller(config=config, gripper=True)
-    ckpt_dir = act_project_dir + config['train_config']['checkpoint_dir']
+    ckpt_dir = act_project_dir + config['train_config']['eval_ckpt_dir']
     ckpt_path = ckpt_dir + config['train_config']['eval_ckpt_name']
     act_controller.load_model(ckpt_dir, ckpt_path)
 
@@ -71,17 +71,17 @@ if __name__ == "__main__":
     # start key monitor for data recording
     human_cmd = "continue"
     
-    center_point = np.array([0.6932, 0.0752, 0.0])
+    center_point = np.array([0.6732, 0.0752, 0.0])
     init_R = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
     init_base_ht_ee = RtToTrans(R=init_R, t=center_point)
-    poses_1 = generate_uniform_distributed_demo_poses(num_poses=12, radius=0.05, height=0.05, start_deg=0, end_deg=np.deg2rad(180))
-    poses_2 = generate_uniform_distributed_demo_poses(num_poses=18, radius=0.1, height=0.3, start_deg=0, end_deg=np.deg2rad(180))
+    poses_1 = generate_uniform_distributed_demo_poses(num_poses=12, radius=0.05, height=0.3, start_deg=0, end_deg=np.deg2rad(180))
+    poses_2 = generate_uniform_distributed_demo_poses(num_poses=18, radius=0.1, height=0.35, start_deg=0, end_deg=np.deg2rad(180))
     poses = init_base_ht_ee @ np.vstack([poses_1, poses_2])
 
-    counter = 0
+    counter = 4
     while human_cmd == "continue":
 
-        random_idx = random.randint(12, 29)
+        random_idx = random.randint(0, 12)
         act_controller.move_to_carte_position(carte_position=poses[random_idx], completion_time=4)
 
         if args.record == "1":
@@ -91,6 +91,7 @@ if __name__ == "__main__":
         # run policy execution
         act_controller.execution()
 
+        act_controller.activate_gravity_com()
         if args.record == "1":
             recorder.stop_recording()
 

@@ -119,7 +119,7 @@ def train_policy(train_dataloader, val_dataloader, policy_config, train_cfg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='puz_diff_pad_bugs')
+    parser.add_argument('--task', type=str, default='puz_diff')
     parser.add_argument('--config', type=str, default='train_config_diffusion_puzzle')
     args = parser.parse_args()
     config_name = args.config
@@ -164,7 +164,8 @@ if __name__ == '__main__':
 
     # load data
     train_dataloader, val_dataloader, stats, _ = load_data(data_dir, num_episodes, task_cfg['camera_names'],
-                                                           train_cfg['batch_size_train'], train_cfg['batch_size_val'])
+                                                           train_cfg['batch_size_train'], train_cfg['batch_size_val'],
+                                                           train_cfg['norm_type'])
     # save stats
     stats_path = os.path.join(checkpoint_dir, f'dataset_stats.pkl')
     with open(stats_path, 'wb') as f:

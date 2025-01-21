@@ -85,7 +85,8 @@ class ACT_Controller(Arm_Controller):
         t = 0
         k = 0.01
         query_frequency = 1
-        completion_time = 0.2
+        completion_time = 0.1
+        max_q = 0.12
         num_queries = self.policy_cfg['num_queries']
 
         all_time_actions = np.zeros([self.task_cfg['episode_len'], self.task_cfg['episode_len'] + num_queries, self.task_cfg['state_dim']])
@@ -107,7 +108,11 @@ class ACT_Controller(Arm_Controller):
             q_pos[-1] = mock_last_d_gripper_width
 
             # normalize the input data and transform to torch.tensor()
-            norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
+            if self.train_cfg['norm_type'] == "channel":
+                norm_q_pos = (q_pos - self.stats['qpos_channel_mean']) / self.stats['qpos_channel_std']
+            else:
+                norm_q_pos = (q_pos - self.stats['qpos_mean']) / self.stats['qpos_std']
+
             norm_q_pos_tensor = torch.from_numpy(norm_q_pos).float().to(self.device).unsqueeze(0)
             qpos_history[:, t] = norm_q_pos
             iH_img_tensor = self.preprocess(iH_color_img).to(self.device).unsqueeze(0)
@@ -128,14 +133,18 @@ class ACT_Controller(Arm_Controller):
             else:
                 raw_action = all_actions_array[:, t % query_frequency]
 
-            action = raw_action * self.stats['action_std'] + self.stats['action_mean']
+            if self.train_cfg['norm_type'] == "channel":
+                action = raw_action * self.stats['action_channel_std'] + self.stats['action_channel_mean']
+            else:
+                action = raw_action * self.stats['action_std'] + self.stats['action_mean']
+
             action = action.squeeze()
             d_q_pos = action[:7]
 
-            clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time, max_q_vel=0.1)
+            clip_d_q_pos = self.clip_joint_velocity(q_pos[:7], d_q_pos, completion_time, max_q_vel=max_q)
             joint_goal = get_BB_Joint_goal(kp=kp, kv=kv, d_q=clip_d_q_pos, completion_time=completion_time)
             self.joint_goal_pub.publish(joint_goal)
-            rospy.sleep(completion_time)
+            # rospy.sleep(completion_time)
             t += 1
 
             if action[-1] <= 0.03 and not self.gripper_ctl.is_grasping():
@@ -145,6 +154,7 @@ class ACT_Controller(Arm_Controller):
 
 
         self.ctrl_logger.critical("Done")
+        
 
     def clip_joint_velocity(self, curt_q, d_q, completion_time, max_q_vel=0.2):
         max_diff_q = np.array([max_q_vel*completion_time for i in range(7)])  # read from franka specifications
@@ -152,6 +162,7 @@ class ACT_Controller(Arm_Controller):
         clip_diff_q = np.clip(diff_q, -max_diff_q, max_diff_q)
         clip_d_q = curt_q + clip_diff_q
         return clip_d_q
+    
 
 
 if __name__ == "__main__":
@@ -165,7 +176,7 @@ if __name__ == "__main__":
     config = yaml.load(open(config_path, "r"), Loader=yaml.Loader)
 
     act_controller = ACT_Controller(config=config, gripper=True)
-    ckpt_dir = act_project_dir + config['train_config']['checkpoint_dir']
+    ckpt_dir = act_project_dir + config['train_config']['eval_ckpt_dir']
     ckpt_path = ckpt_dir + config['train_config']['eval_ckpt_name'] 
     act_controller.load_model(ckpt_dir, ckpt_path)
     act_controller.execution()

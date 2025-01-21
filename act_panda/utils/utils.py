@@ -2,23 +2,22 @@ import os
 import h5py
 import torch
 import numpy as np
-from einops import rearrange
+os.environ['DEVICE'] = 'cuda' if torch.cuda.is_available() else 'cpu'
 from torch.utils.data import DataLoader
-
 from act_panda.training.policy import ACTPolicy, CNNMLPPolicy, DiffusionPolicy
-
 device = os.environ['DEVICE']
 
 
+
 class EpisodicDataset(torch.utils.data.Dataset):
-    def __init__(self, episode_ids, dataset_dir, camera_names, norm_stats):
+    def __init__(self, episode_ids, dataset_dir, camera_names, norm_stats, norm_type="channel"):
         super(EpisodicDataset).__init__()
         self.episode_ids = episode_ids
         self.dataset_dir = dataset_dir
         self.camera_names = camera_names
         self.norm_stats = norm_stats
+        self.norm_type = norm_type
         self.is_sim = None
-        #self.__getitem__(0) # initialize self.is_sim
 
     def __len__(self):
         return len(self.episode_ids)
@@ -73,8 +72,12 @@ class EpisodicDataset(torch.utils.data.Dataset):
 
         # normalize image and change dtype to float
         image_data = image_data / 255.0
-        action_data = (action_data - self.norm_stats["action_channel_mean"]) / self.norm_stats["action_channel_std"]
-        qpos_data = (qpos_data - self.norm_stats["qpos_channel_mean"]) / self.norm_stats["qpos_channel_std"]
+        if self.norm_type == "channel":
+            action_data = (action_data - self.norm_stats["action_channel_mean"]) / self.norm_stats["action_channel_std"]
+            qpos_data = (qpos_data - self.norm_stats["qpos_channel_mean"]) / self.norm_stats["qpos_channel_std"]
+        else:
+            action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
+            qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
 
         return image_data, qpos_data, action_data, is_pad
 
@@ -124,7 +127,7 @@ def get_norm_stats(dataset_dir, num_episodes):
     return stats
 
 
-def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val):
+def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val, norm_type="channel"):
     print(f'\nData from: {dataset_dir}\n')
     # obtain train test split
     train_ratio = 0.9
@@ -136,8 +139,8 @@ def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_s
     norm_stats = get_norm_stats(dataset_dir, num_episodes)
 
     # construct dataset and dataloader
-    train_dataset = EpisodicDataset(train_indices, dataset_dir, camera_names, norm_stats)
-    val_dataset = EpisodicDataset(val_indices, dataset_dir, camera_names, norm_stats)
+    train_dataset = EpisodicDataset(train_indices, dataset_dir, camera_names, norm_stats, norm_type=norm_type)
+    val_dataset = EpisodicDataset(val_indices, dataset_dir, camera_names, norm_stats, norm_type=norm_type)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffle=True, pin_memory=True, num_workers=1, prefetch_factor=1)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size_val, shuffle=True, pin_memory=True, num_workers=1, prefetch_factor=1)
 
@@ -189,54 +192,8 @@ def forward_pass(data, policy, validation=False):
     return policy(qpos_data, image_data, action_data, is_pad, validation=validation)  # TODO remove Non
 
 
-def sample_box_pose():
-    x_range = [0.0, 0.2]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    cube_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    cube_quat = np.array([1, 0, 0, 0])
-    return np.concatenate([cube_position, cube_quat])
-
-
-def sample_insertion_pose():
-    # Peg
-    x_range = [0.1, 0.2]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    peg_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    peg_quat = np.array([1, 0, 0, 0])
-    peg_pose = np.concatenate([peg_position, peg_quat])
-
-    # Socket
-    x_range = [-0.2, -0.1]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    socket_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    socket_quat = np.array([1, 0, 0, 0])
-    socket_pose = np.concatenate([socket_position, socket_quat])
-
-    return peg_pose, socket_pose
-
 
 ### helper functions
-def get_image(images, camera_names, device='cpu'):
-    curr_images = []
-    for cam_name in camera_names:
-        curr_image = rearrange(images[cam_name], 'h w c -> c h w')
-        curr_images.append(curr_image)
-    curr_image = np.stack(curr_images, axis=0)
-    curr_image = torch.from_numpy(curr_image / 255.0).float().to(device).unsqueeze(0)
-    return curr_image
-
 
 def compute_dict_mean(epoch_dicts):
     result = {k: None for k in epoch_dicts[0]}

@@ -1,6 +1,5 @@
 task_config:
-#  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
-  dataset_dir: &dataset_dir '/data/puzzle_diff_debug/'
+  dataset_dir: &dataset_dir '/data/insertion_puzzle_aligned/'
   episode_len: &episode_len 160
   cam_width: &cam_width 320
   cam_height: &cam_height 240
@@ -9,7 +8,7 @@ task_config:
   camera_names: &camera_names ['front', 'static']
 
 policy_config:
-  lr: 0.0001 # origin was 0.00001
+  lr: 0.00001
   policy_class: 'Diffusion'
   camera_names: *camera_names
   cam_width: *cam_width
@@ -24,19 +23,20 @@ policy_config:
   state_dim: *state_dim
   action_dim: *action_dim
   # new parameters from diffusion policy paper
-  num_train_timesteps: 100
+  num_train_timesteps: 50
   weight_decay: 0.000001
-  num_inference_timesteps: 100  # in papers it is 10
+  num_inference_timesteps: 10  # in papers it is 10
 
 train_config:
   seed: 42
   num_epochs: 1000000
   batch_size_val: 8
   batch_size_train: 16
+  norm_type: "channel"  # channel stands for calculating individual norm and std for each dim of action
   best_val_loss: "action_loss"  # l1_loss or l2_loss
   checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
-  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_dif_fixed_17-35_01-20/eval/'
-  eval_ckpt_name: 'best_ckpt_epoch_4644.ckpt'
+  eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_diff_17-45_01-21/eval/'
+  eval_ckpt_name: 'best_ckpt_epoch_12640.ckpt'
   wandb: True
 
 

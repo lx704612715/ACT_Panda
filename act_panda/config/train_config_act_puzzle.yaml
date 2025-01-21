@@ -29,6 +29,7 @@ train_config:
   num_epochs: 500000
   batch_size_val: 8
   batch_size_train: 8
+  norm_type: "global"  # channel stands for calculating individual norm and std for each dim of action
   best_val_loss: "loss"  # l1_loss or l2_loss
   checkpoint_dir: '/checkpoints/insertion_puzzle/'  # relative to project folder
   eval_ckpt_dir: '/checkpoints/insertion_puzzle/puz_act_00-32_01-18/eval/'

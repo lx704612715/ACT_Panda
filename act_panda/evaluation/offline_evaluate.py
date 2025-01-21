@@ -73,7 +73,11 @@ if __name__ == "__main__":
             obs_static_img = static_imgs[i]
             obs_q = qpos[i]
 
-            norm_q_pos = (obs_q - stats['qpos_mean']) / stats['qpos_std']
+            if train_cfg["norm_type"] == "channel":
+                norm_q_pos = (obs_q - stats['qpos_channel_mean']) / stats['qpos_channel_std']
+            else:
+                norm_q_pos = (obs_q - stats['qpos_mean']) / stats['qpos_std']
+
             norm_q_pos_tensor = torch.from_numpy(norm_q_pos).float().to(device).unsqueeze(0)
             iH_img_tensor = preprocess(obs_iH_img).to(device).unsqueeze(0)
             static_img_tensor = preprocess(obs_static_img).to(device).unsqueeze(0)
@@ -95,7 +99,10 @@ if __name__ == "__main__":
                 raw_action = all_actions_array[0][0]
 
             # denormalize actions
-            hat_action = raw_action * stats['action_std'] + stats['action_mean']
+            if train_cfg["norm_type"] == "channel":
+                hat_action = raw_action * stats['action_channel_std'] + stats['action_channel_mean']
+            else:
+                hat_action = raw_action * stats['action_std'] + stats['action_mean']
             # compare with ground truth
             gt_action = qpos[i+1]
             # diff
